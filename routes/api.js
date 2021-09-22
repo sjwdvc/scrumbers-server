@@ -1,32 +1,18 @@
-const express   = require('express');
+const express = require('express');
 
 const {
-    register,
-    login,
-    readData,
-    updateData,
-    deleteData
+  createUser,
+  readUsers,
+  updateUser,
+  deleteUser,
 } = require('../controllers/user_controller');
-
-const {
-    check,
-    logout
-} = require('../controllers/session_controller');
 
 const router = express.Router();
 
 router
-    // Global routes
-    .get('/session/check', check)
-    .post('/session/logout', logout)
-
-    // User routes
-    .post('/user/register', register)
-    .post('/user/login', login)
-
-
-    .get('/', readData)
-    .put('/:id', updateData)
-    .delete('/:id', deleteData)
+  .post('/', createUser)
+  .get('/', readUsers)
+  .put('/:id', updateUser)
+  .delete('/:id', deleteUser);
 
 module.exports = router;
