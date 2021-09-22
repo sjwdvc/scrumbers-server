@@ -1,29 +1,60 @@
 'use strict';
 
 const User      = require('../models/user_schema');
-const validate  = require('../validate');
+const bcrypt    = require("bcrypt");
+const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 
 const createUser = (req, res) => {
 
-    if(validate(req) === 200) {
-        User.create(req.body)
-            .then((data) => {
-                console.log('New User Created!', data);
-                res.status(201).json(data);
-            })
-            .catch((err) => {
-                if (err.name === 'ValidationError') {
-                    console.error('Error Validating!', err);
-                    res.status(422).json(err);
-                } else {
-                    console.error(err);
-                    res.status(500).json(err);
-                }
-            });
-    } else {
-        res.error = validate(req)
-    }
+    // Check if the user already exists in the database
+    User.find({email : req.body.email})
+        .then(async data => {
 
+            // If no data is found, continue validation, else return an error message to display
+            if (data.length === 0) {
+
+                // If password is not 8 characters
+                if (req.body.password.length < 8) {
+                    res.json
+                       (
+                           {
+                               error : 'Wachtwoord moet tenminste 8 karakters bevatten',
+                               field : 'password'
+                           }
+                       )
+                } else {
+                    if (Object.values(req.body).some(value => harms.test(value))) {
+                        res.json
+                           ({
+                                error : 'Je gebruikt karakters die niet zijn toegstaan',
+                                field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+                            })
+                    } else {
+                        // Generate hash salt
+                        const salt = await bcrypt.genSalt(10);
+
+                        // Hash password after validation and before inserting into database
+                        req.body.password = await bcrypt.hash(req.body.password, salt);
+
+                        // Insert database record
+                        User.create(req.body)
+                            .then()
+                            .catch((err) => res.status(500).json(err));
+                    }
+                }
+            } else {
+                res.json
+                   (
+                       {
+                           error : 'Email is al in gebruik',
+                           field : 'email'
+                       }
+                   )
+            }
+        })
+        .catch(err => {
+            res.status(500).json(err)
+        })
 };
 
 const readUsers = (req, res) => {
