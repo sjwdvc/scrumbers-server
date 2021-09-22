@@ -8,7 +8,7 @@ const createUser = (req, res) => {
 
     // Check if the user already exists in the database
     User.find({email : req.body.email})
-        .then(async data => {
+        .then(data => {
 
             // If no data is found, continue validation, else return an error message to display
             if (data.length === 0) {
@@ -31,10 +31,10 @@ const createUser = (req, res) => {
                             })
                     } else {
                         // Generate hash salt
-                        const salt = await bcrypt.genSalt(10);
+                        const salt = bcrypt.genSalt(10);
 
                         // Hash password after validation and before inserting into database
-                        req.body.password = await bcrypt.hash(req.body.password, salt);
+                        req.body.password = bcrypt.hash(req.body.password, salt);
 
                         // Insert database record
                         User.create(req.body)
