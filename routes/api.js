@@ -1,18 +1,18 @@
 const express = require('express');
 
 const {
-  createData,
-  readData,
-  updateData,
-  deleteData,
+  createUser,
+  readUsers,
+  updateUser,
+  deleteUser,
 } = require('../controllers/user_controller');
 
 const router = express.Router();
 
 router
-  .post('/', createData)
-  .get('/', readData)
-  .put('/:id', updateData)
-  .delete('/:id', deleteData);
+  .post('/', createUser)
+  .get('/', readUsers)
+  .put('/:id', updateUser)
+  .delete('/:id', deleteUser);
 
 module.exports = router;
