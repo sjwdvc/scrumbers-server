@@ -76,8 +76,8 @@ const deleteUser = (req, res) => {
 };
 
 module.exports = {
-    createData,
-    readData,
-    updateData,
-    deleteData,
+    createUser,
+    readUsers,
+    updateUser,
+    deleteUser,
 };
