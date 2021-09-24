@@ -1,4 +1,7 @@
 'use strict';
+// Imports
+const jwt = require('jsonwebtoken');
+const fs = require('fs');
 
 const User = require('../models/user_schema');
 
@@ -68,9 +71,63 @@ const deleteData = (req, res) => {
     });
 };
 
+/**
+ * POST /user/login
+ * Lets you login as a user
+ * @param {Request} req 
+ * @param {Response} res 
+ */
+const login = (req, res) =>
+{
+  User.findById(req.params.id)
+    .then(data => {
+      if (!data) throw new Error('User not available');
+      // TODO:
+      // Comapre the password with password hash
+      if (/*req.body.password == data.password*/ true)
+      {
+        let key = null;
+        // Check if we have a jwt server key file
+        // If not create a new server key and put it in .jwtkey
+        if(fs.existsSync('.jwtkey'))
+          key = fs.readFileSync('.jwtkey');
+        else
+        {
+          key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+          fs.writeFileSync('.jwtkey', key); // Safe the key to file
+        }
+        
+        // Create a json webtoken to use for api calls
+        let token = jwt.sign({
+          userName:  data.name,
+          userEmail: data.email
+        }, key);
+
+        // Send a response containing the token
+        res.status(200).json(
+        {
+          meta: {
+            count: 1
+          },
+          data: [
+            {
+              token: token
+            }
+          ]
+        }
+      );
+    }
+    else
+      res.status(401).json({ error: 'Password is incorrect' });
+  }).catch(err => {
+    res.status(500).json({ error: err.message });
+  });
+}
+ 
 module.exports = {
   createData,
   readData,
   updateData,
   deleteData,
+  login
 };

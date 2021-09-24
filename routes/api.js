@@ -5,6 +5,7 @@ const {
   readData,
   updateData,
   deleteData,
+  login
 } = require('../controllers/user_controller');
 
 const router = express.Router();
@@ -13,6 +14,7 @@ router
   .post('/', createData)
   .get('/', readData)
   .put('/:id', updateData)
-  .delete('/:id', deleteData);
+  .delete('/:id', deleteData)
+  .post('/login/:id', login);
 
 module.exports = router;
