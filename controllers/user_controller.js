@@ -25,17 +25,19 @@ const createUser = (req, res) => {
                     if (Object.values(req.body).some(value => harms.test(value))) {
                         res.json
                            ({
-                                error : 'Je gebruikt karakters die niet zijn toegstaan',
+                                error : 'Je gebruikt karakters die niet zijn toegestaan',
                                 field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
                             })
                     } else {
                         // Hash password after validation and before inserting into database
-                        req.body.password = bcrypt.hashSync(req.body.password,10);
-
-                        // Insert database record
-                        User.create(req.body)
-                            .then(res.status(200))
-                            .catch((err) => res.status(500).json(err));
+                        req.body.password = hashPassword(req.body.password)
+                            .then(() => {
+                                // Insert database record
+                                User.create(req.body)
+                                    .then(res.status(200))
+                                    .catch((err) => res.status(500).json(err));
+                            })
+                            .catch(err => console.log(err))
                     }
                 }
             } else {
@@ -52,6 +54,16 @@ const createUser = (req, res) => {
             res.status(500).json(err)
         })
 };
+
+
+ const hashPassword = async (password) => {
+    // generate salt to hash password
+     const salt = await bcrypt.genSalt(10);
+     // now we set user password to hashed password
+     return await bcrypt.hash(password, salt);
+}
+
+
 
 const readUsers = (req, res) => {
     User.find()
