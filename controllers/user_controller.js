@@ -9,7 +9,6 @@ const createUser = (req, res) => {
     // Check if the user already exists in the database
     User.find({email : req.body.email})
         .then(data => {
-
             // If no data is found, continue validation, else return an error message to display
             if (data.length === 0) {
 
@@ -30,13 +29,12 @@ const createUser = (req, res) => {
                                 field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
                             })
                     } else {
-
                         // Hash password after validation and before inserting into database
                         req.body.password = bcrypt.hashSync(req.body.password,10);
 
                         // Insert database record
                         User.create(req.body)
-                            .then()
+                            .then(res.status(200))
                             .catch((err) => res.status(500).json(err));
                     }
                 }
