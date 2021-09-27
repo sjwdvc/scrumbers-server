@@ -80,10 +80,10 @@ const deleteData = (req, res) => {
  */
 const login = (req, res) =>
 {
-	console.log(req.body);
 	if (!req.body.password) return res.status(404).json({ error: 'Password Not found' });
-	User.findById(req.params.id)
-	.then(data => {
+	User.find({ email: req.body.email })
+	.then(users => {
+    let data = users[0];
 		if (!data) res.status(404).json({ error: 'Not found' });
 		//if (!data) throw new Error('User not available');
 		// Validate the given password
