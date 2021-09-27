@@ -1,32 +1,30 @@
 'use strict';
 
-const User      = require('../models/user_schema');
-const validate  = require('../validate');
+// Imports
+const jwt       = require('jsonwebtoken');
+const fs        = require('fs');
+const bcrypt    = require('bcrypt');
 
-const createUser = (req, res) => {
+const User = require('../models/user_schema');
 
-    if(validate(req) === 200) {
-        User.create(req.body)
-            .then((data) => {
-                console.log('New User Created!', data);
-                res.status(201).json(data);
-            })
-            .catch((err) => {
-                if (err.name === 'ValidationError') {
-                    console.error('Error Validating!', err);
-                    res.status(422).json(err);
-                } else {
-                    console.error(err);
-                    res.status(500).json(err);
-                }
-            });
-    } else {
-        res.error = validate(req)
-    }
-
+const createData = (req, res) => {
+    User.create(req.body)
+        .then((data) => {
+            console.log('New User Created!', data);
+            res.status(201).json(data);
+        })
+        .catch((err) => {
+            if (err.name === 'ValidationError') {
+                console.error('Error Validating!', err);
+                res.status(422).json(err);
+            } else {
+                console.error(err);
+                res.status(500).json(err);
+            }
+        });
 };
 
-const readUsers = (req, res) => {
+const readData = (req, res) => {
     User.find()
         .then((data) => {
             res.status(200).json(data);
@@ -37,10 +35,10 @@ const readUsers = (req, res) => {
         });
 };
 
-const updateUser = (req, res) => {
+const updateData = (req, res) => {
     User.findByIdAndUpdate(req.params.id, req.body, {
-        useFindAndModify : false,
-        new : true,
+        useFindAndModify: false,
+        new: true,
     })
         .then((data) => {
             console.log('User updated!');
@@ -57,7 +55,7 @@ const updateUser = (req, res) => {
         });
 };
 
-const deleteUser = (req, res) => {
+const deleteData = (req, res) => {
     User.findById(req.params.id)
         .then((data) => {
             if (!data) {
@@ -75,9 +73,76 @@ const deleteUser = (req, res) => {
         });
 };
 
+/**
+ * POST /user/login
+ * Lets you login as a user
+ * @param {Request} req
+ * @param {Response} res
+ */
+const login = (req, res) => {
+    User.find({email: req.body.email})
+        .then(data => {
+            if (data.length === 0) res.json(
+                {
+                    error: "Gebruiker niet gevonden",
+                    field: "email"
+                })
+            else {
+                bcrypt.compare(req.body.password, data[0].password)
+                    .then(result => {
+                        if (result) {
+                            let key = null;
+                            // Check if we have a jwt server key file
+                            // If not create a new server key and put it in .jwtkey
+                            if (fs.existsSync('.jwtkey'))
+                              key = fs.readFileSync('.jwtkey');
+                            else {
+                              key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+                              fs.writeFileSync('.jwtkey', key); // Safe the key to file
+                            }
+
+                            // Create a json webtoken to use for api calls
+                            let token = jwt.sign({
+                                                   userName : data.name,
+                                                   userEmail : data.email
+                                               }, key);
+
+                            // Send a response containing the token
+                            res.json(
+                                {
+                                    meta : {
+                                        count : 1
+                                    },
+                                    data : [
+                                        {
+                                            token : token
+                                        }
+                                    ]
+                                }
+                            );
+                        } else {
+                            res.json(
+                                {
+                                    error : 'Onjuist wachtwoord',
+                                    field : 'password'
+                                }
+                            );
+                        }
+                    })
+                    .catch(err => {
+                        res.json({ error: err.message });
+                    });
+            }
+        })
+        .catch(err => {
+            res.json({ error: err.message });
+        });
+}
+
 module.exports = {
-    createUser,
-    readUsers,
-    updateUser,
-    deleteUser,
+    createData,
+    readData,
+    updateData,
+    deleteData,
+    login
 };
