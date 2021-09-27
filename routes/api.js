@@ -16,6 +16,5 @@ router
   .get('/', readData)
   .put('/:id', updateData)
   .delete('/:id', deleteData)
-  .post('/login', login);
 
 module.exports = router;

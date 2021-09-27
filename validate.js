@@ -17,8 +17,10 @@ const validate = value => {
     // If value is empty
     response = (value === '') ? 'empty' : 200
 
-    // If value contains any of the harmfull characters defined above
-    harms.forEach(harm => value.includes(harm) ? response = 'chars' : 200)
+    // If input values contain any of the harmful characters defined above
+    Object.values(value).forEach(input => {
+        harms.forEach(harm => input.includes(harm) ? response = 'chars' : 200)
+    })
 
     return response;
 }
