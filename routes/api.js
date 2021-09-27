@@ -11,7 +11,8 @@ const {
 const router = express.Router();
 
 router
-  .post('/', createData)
+  .post('/register', createData)
+  .post('/login', login)
   .get('/', readData)
   .put('/:id', updateData)
   .delete('/:id', deleteData)
