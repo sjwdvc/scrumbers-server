@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "bcrypt": "^5.0.1",
+    "express-session": "^1.17.2",
     "nodemon": "^1.18.3",
     "prettier": "^2.0.5"
   }

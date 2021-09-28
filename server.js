@@ -1,6 +1,7 @@
 // Importing required modules
-const cors = require('cors');
-const express = require('express');
+const cors      = require('cors');
+const express   = require('express');
+const es        = require('express-session');
 
 // parse env variables
 require('dotenv').config();
@@ -13,9 +14,10 @@ const port = process.env.PORT || 4000;
 const app = express();
 
 // Configure middlewares
-app.use(cors());
+app.use(cors({origin: ['http://localhost:3001', '*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(es({secret: 'ssshhhhh', saveUninitialized: true, resave: true}));
 
 app.set('view engine', 'html');
 
