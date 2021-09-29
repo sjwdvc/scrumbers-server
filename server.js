@@ -1,6 +1,7 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
+const session   = require('express-session');
 
 // parse env variables
 require('dotenv').config();
@@ -13,6 +14,7 @@ const port = process.env.PORT || 4000;
 const app = express();
 
 // Configure middlewares
+app.use(session({secret: 'ssshhhhh',saveUninitialized: true,resave: true}));
 app.use(cors({origin: ['*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
