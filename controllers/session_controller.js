@@ -4,7 +4,7 @@
  */
 const check = (req, res) => {
 
-    res.json({ses: req.session})
+    res.json({ses: req})
 
     //
     // if(req.session.token === undefined) res.status(200).json({login: false})
