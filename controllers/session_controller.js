@@ -3,17 +3,11 @@
  * Checks wether you are logged in or not by the presence of the json webtoken
  */
 const check = (req, res) => {
-    // if(req.session)
-    // {
-    //     if(req.session.token === undefined) res.status(200).json({login: false})
-    //     else
-    //     {
-    //         res.status(200).json({login: true})
-    //     }
-    // } else {
-    //     res.status(200).json({login: false})
-    // }
-    res.status(200).json({login: false})
+    if(req.session.token === undefined) res.status(200).json({login: false})
+    else
+    {
+        res.status(200).json({login: true})
+    }
 }
 
 const logout = (req, res) => {
