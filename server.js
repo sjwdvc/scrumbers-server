@@ -14,7 +14,9 @@ const port = process.env.PORT || 5555;
 const app = express();
 
 // Configure middlewares
-app.use(session({secret: 'ssshhhhh',saveUninitialized: true,resave: true, secure: true, cookie: {sameSite:'none', secure:true}}));
+app.set('trust proxy', 1);
+
+app.use(session({secret: 'ssshhhhh',saveUninitialized: true,resave: true, secure: true}));
 app.use(cors({origin: ['*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
