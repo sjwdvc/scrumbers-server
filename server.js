@@ -14,6 +14,7 @@ const port = process.env.PORT || 5555;
 const app = express();
 
 // Configure middlewares
+
 app.set('trust proxy', 1);
 
 app.use(session({
