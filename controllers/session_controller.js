@@ -3,10 +3,15 @@
  * Checks wether you are logged in or not by the presence of the json webtoken
  */
 const check = (req, res) => {
-    if(req.session.token === undefined) res.status(200).json({login: false})
-    else
+    if(req.session)
     {
-        res.status(200).json({login: true})
+        if(req.session.token === undefined) res.status(200).json({login: false})
+        else
+        {
+            res.status(200).json({login: true})
+        }
+    } else {
+        res.status(200).json({login: false})
     }
 }
 
