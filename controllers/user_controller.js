@@ -148,25 +148,21 @@ const login = (req, res) => {
                 bcrypt.compare(req.body.password, data[0].password)
                     .then(result => {
                         if (result) {
-
                             req.session.token = generateToken(data)
 
-                            req.session.save(function(err) {
-
-                                // Send a response containing the token
-                                res.status(200).json(
-                                    {
-                                        meta : {
-                                            count : 1
-                                        },
-                                        data : [
-                                            {
-                                                token : req.session.token
-                                            }
-                                        ],
-                                    }
-                                );
-                            })
+                            // Send a response containing the token
+                            res.status(200).json(
+                                {
+                                    meta : {
+                                        count : 1
+                                    },
+                                    data : [
+                                        {
+                                            token : req.session.token
+                                        }
+                                    ],
+                                }
+                            );
                         } else {
                             res.json(
                                 {
