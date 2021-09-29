@@ -23,6 +23,8 @@ router
     // User routes
     .post('/user/register', register)
     .post('/user/login', login)
+
+
     .get('/', readData)
     .put('/:id', updateData)
     .delete('/:id', deleteData)
