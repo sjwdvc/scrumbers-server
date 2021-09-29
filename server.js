@@ -16,10 +16,17 @@ const app = express();
 // Configure middlewares
 app.set('trust proxy', 1);
 
-app.use(session({secret: 'ssshhhhh',saveUninitialized: true,resave: true, secure: true, cookie: {
+app.use(session({
+    secret: 'ssshhhhh',
+    saveUninitialized: true,
+    resave: true,
+    secure: true,
+    cookie: {
         sameSite:'none',
         secure:true
-    }}));
+    }
+}));
+
 app.use(cors({origin: ['https://scrumbers-client.herokuapp.com/', '*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
