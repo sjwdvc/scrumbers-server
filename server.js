@@ -15,7 +15,7 @@ const app = express();
 
 // Configure middlewares
 app.use(session({secret: 'ssshhhhh',saveUninitialized: true,resave: true}));
-app.use(cors({origin: ['*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
+app.use(cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
