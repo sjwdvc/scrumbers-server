@@ -2,6 +2,12 @@
 const cors      = require('cors');
 const express   = require('express');
 const session   = require('express-session');
+const https     = require('https');
+const fs        = require("fs");
+const options   = {
+    key: fs.readFileSync('./localhost-key.pem'),
+    cert: fs.readFileSync('./localhost.pem'),
+};
 
 // parse env variables
 require('dotenv').config();
@@ -15,8 +21,6 @@ const app = express();
 
 // Configure middlewares
 
-app.set('trust proxy', 1);
-
 app.use(session({
     secret: 'ssshhhhh',
     saveUninitialized: true,
@@ -24,14 +28,13 @@ app.use(session({
     secure: true,
     cookie: {
         sameSite:'none',
-        secure:true
+        secure: true
     }
 }));
 
 app.use(cors({origin: ['https://scrumbers-client.herokuapp.com/', '*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.set('view engine', 'html');
 
 // Static folder
@@ -41,7 +44,8 @@ app.use(express.static(__dirname + '/views/'));
 app.use('/api', require('./routes/api'));
 
 // Listening to port
-app.listen(port);
-console.log(`Listening On http://localhost:${port}/api`);
+https.createServer(options, app).listen(port)
+
+console.log(`Listening On https://localhost:${port}/api`);
 
 module.exports = app;
