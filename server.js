@@ -43,6 +43,9 @@ app.use(express.static(__dirname + '/views/'));
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
+// Start the socket server
+require('./helpers/socketServer')(app);
+
 // Listening to port
 https.createServer(options, app).listen(port)
 
