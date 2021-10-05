@@ -44,7 +44,7 @@ app.use(express.static(__dirname + '/views/'));
 app.use('/api', require('./routes/api'));
 
 // Listening to port
-const server    = https.createServer(options, app);
+const server    = https.createServer(app);
 const io        = require('socket.io')(server);
 
 // Start the socket server
