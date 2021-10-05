@@ -150,6 +150,7 @@ const login = (req, res) => {
                           if (result) {
 
                               req.session.token = generateToken(data)
+                              req.session.email = req.body.email
 
                               // Send a response containing the token
                               res.status(200).json(

@@ -20,11 +20,8 @@ module.exports = function(io)
             switch(args.event)
             {
                 case 'create':
-                    session = new Session(client.id, Math.floor(Math.random() * 900000))
-
-                    console.log('Session : ' + session.key)
-
-                    client.emit('createRoom', {session: session})
+                    session = new Session(client, Math.floor(Math.random() * 900000))
+                    client.emit('createRoom', {session: 'test'})
                 break;
                 case 'join':
                     // Check if there is a session with the key the client is using to join
