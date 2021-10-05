@@ -1,7 +1,7 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
-const session   = require('express-session');
+const session   = require('cookie-session');
 const https     = require('https');
 const fs        = require("fs");
 
