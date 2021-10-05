@@ -43,11 +43,14 @@ app.use(express.static(__dirname + '/views/'));
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
-// Start the socket server
-require('./helpers/socketServer')(app);
-
 // Listening to port
-https.createServer(options, app).listen(port)
+const server    = https.createServer(options, app);
+const io        = require('socket.io')(server);
+
+// Start the socket server
+require('./helpers/socketServer')(io);
+
+server.listen(port);
 
 console.log(`Listening On https://localhost:${port}/api`);
 
