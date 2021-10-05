@@ -1,4 +1,5 @@
 const { Socket, Server } = require('socket.io');
+const request = require('request')
 
 module.exports = function(io)
 {
@@ -20,9 +21,11 @@ module.exports = function(io)
             switch(args.event)
             {
                 case 'create':
-                    session = new Session(client, Math.floor(Math.random() * 900000))
-                    client.emit('createRoom', {session: 'test'})
+                    let key = Math.floor(Math.random() * 900000)
+                    session = new Session(client, key)
+                    client.emit('createRoom', {key: session.key})
                 break;
+
                 case 'join':
                     // Check if there is a session with the key the client is using to join
                     session = this.activeSessions.find(session => session.key === args.key);
