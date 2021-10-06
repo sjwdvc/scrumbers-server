@@ -1,7 +1,7 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
-const session   = require('express-session');
+const es        = require('express-session');
 const fs        = require("fs");
 
 // parse env variables
@@ -17,7 +17,7 @@ app.set('trust proxy', 1)
 
 // Configure middlewares
 
-app.use(session({
+app.use(es({
     secret: 'ssshhhhh',
     saveUninitialized: true,
     resave: true,
@@ -53,8 +53,6 @@ app.use('/api', require('./routes/api'));
 const server    = app.listen(port)
 const io        = require('socket.io')(server);
 require('./helpers/socketServer')(io);
-
-
 
 console.log(`Listening On https://localhost:${port}/api`);
 

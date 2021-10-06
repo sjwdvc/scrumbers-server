@@ -3,9 +3,6 @@
  * Checks wether you are logged in or not by the presence of the json webtoken
  */
 const check = (req, res) => {
-
-    res.setHeader('Access-Control-Allow-Headers', 'Set-Cookie')
-
     if(req.session.token === undefined) res.status(200).json({login: false})
     else
     {

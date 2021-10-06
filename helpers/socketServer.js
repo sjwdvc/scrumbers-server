@@ -6,7 +6,7 @@ module.exports = function(io)
      * Store all active sessions in an array
      * @type {Array.<Session>} 
      */
-    this.activeSessions = [];
+    if(!this.activeSessions) this.activeSessions = []
 
     // Listen for connections
     io.on('connection', client => {
@@ -18,23 +18,30 @@ module.exports = function(io)
             switch(args.event)
             {
                 case 'create':
-                    let key     = Math.floor(Math.random() * 900000)
-                    let session = new Session(client, key)
-                    this.activeSessions.push(session)
-                    client.emit('createRoom', {key: session.key})
+                    let key     = Math.floor(Math.random() * 900000);
+                    client.username = args.username
+                    let session = new Session(client, key);
+                    this.activeSessions.push(session);
+
+                    client.emit('createRoom', {key: key})
                 break;
 
                 case 'join':
                     // // Check if there is a session with the key the client is using to join
-                    // this.activeSessions.find(session => session.key === args.key);
-                    //
-                    // if (session)
-                    // {
-                    //     // Join the session
-                    //     session.clients.push(client);
-                    //     session.broadcast('session', { event: 'join', user: '...' });
-                    //     console.log('user joined with key: ' + args.key)
-                    // }
+                    let currentSession = this.activeSessions.find(session => session.key === args.key);
+
+                    if (currentSession !== undefined)
+                    {
+                        client.username = args.username
+
+                        // Join the session
+                        currentSession.clients.push(client);
+
+                        // Create a overview of all users in the current session and return to the client
+                        let users = []
+                        currentSession.clients.forEach(client => users.push(client.username));
+                        currentSession.broadcast('session', { event: 'join', users: users });
+                    } else console.log(`session is not created`)
                 break;
             }
         })
@@ -50,7 +57,7 @@ class Session
 
     /**
      * Create a new session
-     * @param {Socket} admin - The user who created the session 
+     * @param {Socket} admin - The user who created the session
      * @param {number} key - Users can join with this key
      */
     constructor(admin, key)
