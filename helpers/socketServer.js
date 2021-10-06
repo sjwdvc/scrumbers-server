@@ -15,25 +15,26 @@ module.exports = function(io)
         // Activate when client sends a session event
         client.on('session', args => {
 
-            let session;
-
             switch(args.event)
             {
                 case 'create':
-                    let key = Math.floor(Math.random() * 900000)
-                    session = new Session(client, key)
+                    let key     = Math.floor(Math.random() * 900000)
+                    let session = new Session(client, key)
+                    this.activeSessions.push(session)
                     client.emit('createRoom', {key: session.key})
                 break;
 
                 case 'join':
-                    // Check if there is a session with the key the client is using to join
-                    session = this.activeSessions.find(session => session.key === args.key);
-                    if (session)
-                    {
-                        // Join the session
-                        session.clients.push(client);
-                        session.broadcast('session', { event: 'join', user: '...' });
-                    }
+                    // // Check if there is a session with the key the client is using to join
+                    // this.activeSessions.find(session => session.key === args.key);
+                    //
+                    // if (session)
+                    // {
+                    //     // Join the session
+                    //     session.clients.push(client);
+                    //     session.broadcast('session', { event: 'join', user: '...' });
+                    //     console.log('user joined with key: ' + args.key)
+                    // }
                 break;
             }
         })
