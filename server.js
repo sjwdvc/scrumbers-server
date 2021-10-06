@@ -1,7 +1,7 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
-const session   = require('cookie-session');
+const session   = require('express-session');
 const fs        = require("fs");
 
 // parse env variables
@@ -35,24 +35,24 @@ app.set('view engine', 'html');
 
 // Static folder
 app.use(express.static(__dirname + '/views/'));
-    
+
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
 // Local Config (https)
-// const https  = require('https');
-// const server    = https.createServer({
-//                                      key: fs.readFileSync('./localhost-key.pem'),
-//                                      cert: fs.readFileSync('./localhost.pem'),
-//                                      }, app);
-// const io        = require('socket.io')(server);
-// require('./helpers/socketServer')(io);
-// server.listen(port)
-
-// Heroku config
-const server    = app.listen(port)
+const https  = require('https');
+const server    = https.createServer({
+                                     key: fs.readFileSync('./localhost-key.pem'),
+                                     cert: fs.readFileSync('./localhost.pem'),
+                                     }, app);
 const io        = require('socket.io')(server);
 require('./helpers/socketServer')(io);
+server.listen(port)
+
+// Heroku config
+// const server    = app.listen(port)
+// const io        = require('socket.io')(server);
+// require('./helpers/socketServer')(io);
 
 
 

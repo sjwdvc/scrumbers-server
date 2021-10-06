@@ -17,7 +17,7 @@ const router = express.Router();
 
 router
     // Global routes
-    .get('/session/check', check)
+    .post('/session/check', check)
     .post('/session/logout', logout)
 
     // User routes
