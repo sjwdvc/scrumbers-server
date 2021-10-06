@@ -50,7 +50,7 @@ class Session
     /**
      * Create a new session
      * @param {Socket} admin - The user who created the session 
-     * @param {string} key - Users can join with this key
+     * @param {number} key - Users can join with this key
      */
     constructor(admin, key)
     {

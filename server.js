@@ -2,7 +2,7 @@
 const cors      = require('cors');
 const express   = require('express');
 const session   = require('cookie-session');
-const https     = require('https');
+// const https     = require('https');
 const fs        = require("fs");
 // const options   = {
 //     key: fs.readFileSync('./localhost-key.pem'),
@@ -44,13 +44,14 @@ app.use(express.static(__dirname + '/views/'));
 app.use('/api', require('./routes/api'));
 
 // Listening to port
-const server    = https.createServer(app);
+// const server    = https.createServer(app);
+const server    = app.listen(port)
 const io        = require('socket.io')(server);
 
 // Start the socket server
 require('./helpers/socketServer')(io);
 
-server.listen(port);
+// server.listen(port);
 
 console.log(`Listening On https://localhost:${port}/api`);
 
