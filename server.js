@@ -28,7 +28,7 @@ app.use(es({
     }
 }));
 
-app.use(cors({origin: ['https://scrumbers-client.herokuapp.com/', '*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
+app.use(cors({origin: 'https://localhost:8081', credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'html');
@@ -40,18 +40,18 @@ app.use(express.static(__dirname + '/views/'));
 app.use('/api', require('./routes/api'));
 
 // Local Config (https)
-// const https  = require('https');
+// const https     = require('https');
 // const server    = https.createServer({
 //                                      key: fs.readFileSync('./localhost-key.pem'),
 //                                      cert: fs.readFileSync('./localhost.pem'),
 //                                      }, app);
-// const io        = require('socket.io')(server);
+// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 // require('./helpers/socketServer')(io);
 // server.listen(port)
 
 // Heroku config
 const server    = app.listen(port)
-const io        = require('socket.io')(server);
+const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 require('./helpers/socketServer')(io);
 
 console.log(`Listening On https://localhost:${port}/api`);
