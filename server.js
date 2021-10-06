@@ -40,19 +40,19 @@ app.use(express.static(__dirname + '/views/'));
 app.use('/api', require('./routes/api'));
 
 // Local Config (https)
-const https  = require('https');
-const server    = https.createServer({
-                                     key: fs.readFileSync('./localhost-key.pem'),
-                                     cert: fs.readFileSync('./localhost.pem'),
-                                     }, app);
-const io        = require('socket.io')(server);
-require('./helpers/socketServer')(io);
-server.listen(port)
-
-// Heroku config
-// const server    = app.listen(port)
+// const https  = require('https');
+// const server    = https.createServer({
+//                                      key: fs.readFileSync('./localhost-key.pem'),
+//                                      cert: fs.readFileSync('./localhost.pem'),
+//                                      }, app);
 // const io        = require('socket.io')(server);
 // require('./helpers/socketServer')(io);
+// server.listen(port)
+
+// Heroku config
+const server    = app.listen(port)
+const io        = require('socket.io')(server);
+require('./helpers/socketServer')(io);
 
 
 
