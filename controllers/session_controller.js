@@ -10,7 +10,15 @@ const check = (req, res) => {
     if(req.session.token === undefined) res.status(200).json({login: false})
     else
     {
-        res.status(200).json({login: true})
+        res.status(200).json({login: true, email: req.session.email, name: req.session.name})
+    }
+}
+
+const email = (req, res) => {
+    if(req.session.email === undefined) res.status(200).json({email: false})
+    else
+    {
+        res.status(200).json({email: req.session.email})
     }
 }
 
@@ -21,5 +29,6 @@ const logout = (req, res) => {
 
 module.exports = {
     check,
-    logout
+    logout,
+    email
 }

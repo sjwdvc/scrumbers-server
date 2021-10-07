@@ -17,13 +17,13 @@ const router = express.Router();
 
 router
     // Global routes
-    .post('/session/check', check)
     .post('/session/logout', logout)
+    .post('/session/check', check)
+
 
     // User routes
     .post('/user/register', register)
     .post('/user/login', login)
-
 
     .get('/', readData)
     .put('/:id', updateData)

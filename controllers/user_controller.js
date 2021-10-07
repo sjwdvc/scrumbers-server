@@ -149,22 +149,28 @@ const login = (req, res) => {
                       .then(result => {
                           if (result) {
 
+                              // Set session properties
                               req.session.token = generateToken(data)
                               req.session.email = req.body.email
 
-                              // Send a response containing the token
-                              res.status(200).json(
-                                  {
-                                      meta : {
-                                          count : 1
-                                      },
-                                      data : [
+                              User.find({email : req.body.email})
+                                  .then(data => {
+                                      req.session.name = data[0].name
+
+                                      // Send a response containing the token
+                                      res.status(200).json(
                                           {
-                                              token : req.session.token
+                                              meta : {
+                                                  count : 1
+                                              },
+                                              data : [
+                                                  {
+                                                      token : req.session.token
+                                                  }
+                                              ],
                                           }
-                                      ],
-                                  }
-                              );
+                                      );
+                                  })
                           } else {
                               res.json(
                                   {

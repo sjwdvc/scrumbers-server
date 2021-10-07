@@ -1,7 +1,7 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
-const es        = require('express-session');
+const es        = require('express-session')
 const fs        = require("fs");
 
 // parse env variables
@@ -16,7 +16,6 @@ const app = express();
 app.set('trust proxy', 1)
 
 // Configure middlewares
-
 app.use(es({
     secret: 'ssshhhhh',
     saveUninitialized: true,
@@ -39,7 +38,7 @@ app.use(express.static(__dirname + '/views/'));
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
-// Local Config (https)
+// Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
 // const https     = require('https');
 // const server    = https.createServer({
 //                                      key: fs.readFileSync('./localhost-key.pem'),
@@ -49,7 +48,7 @@ app.use('/api', require('./routes/api'));
 // require('./helpers/socketServer')(io);
 // server.listen(port)
 
-// Heroku config
+// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
 const server    = app.listen(port)
 const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 require('./helpers/socketServer')(io);
