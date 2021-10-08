@@ -11,74 +11,96 @@ const User = require('../models/user_schema')
 
 const register = (req, res) => {
     // Check if the user already exists in the database
-    User.find({email : req.body.email})
-        .then(data => {
-            // If no data is found, continue validation, else return an error message to display
-            if (data.length === 0) {
-                // If password is not 8 characters
-                if (req.body.password.length < 8) {
-                    res.json
-                       (
-                           {
-                               error : 'Wachtwoord moet tenminste 8 karakters bevatten',
-                               field : 'password'
-                           }
-                       )
-                } else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
-                    res.json
-                       (
-                           {
-                               error : 'Wachtwoord moet tenminste 1 hoofdletter bevatten',
-                               field : 'password'
-                           }
-                       )
-                } else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
-                    res.json
-                       (
-                           {
-                               error : 'Wachtwoord moet tenminste 1 cijfer bevatten',
-                               field : 'password',
-                           }
-                       )
-                } else {
-                    if (Object.values(req.body).some(value => harms.test(value))) {
-                        res.json
-                           ({
-                                error : 'Je gebruikt karakters die niet zijn toegestaan',
-                                field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
-                            })
-                    } else
-                    {
-                        // Hash password after validation and before inserting into database
-                        bcrypt.hash(req.body.password, 10)
-                              .then(passwdHash => {
-                                  // When the hash is done we set the password to the hased version
-                                  req.body.password = passwdHash;
+    User.find({name: req.body.name})
+        .then(name => {
+            if(name.length === 0)
+            {
+                User.find({email : req.body.email})
+                    .then(data => {
+                        // If no data is found, continue validation, else return an error message to display
+                        if (data.length === 0) {
+                            // If password is not 8 characters
+                            if (req.body.password.length < 8) {
+                                res.json
+                                   (
+                                       {
+                                           error : 'Wachtwoord moet tenminste 8 karakters bevatten',
+                                           field : 'password'
+                                       }
+                                   )
+                            } else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
+                                res.json
+                                   (
+                                       {
+                                           error : 'Wachtwoord moet tenminste 1 hoofdletter bevatten',
+                                           field : 'password'
+                                       }
+                                   )
+                            } else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+                                res.json
+                                   (
+                                       {
+                                           error : 'Wachtwoord moet tenminste 1 cijfer bevatten',
+                                           field : 'password',
+                                       }
+                                   )
+                            } else {
+                                if (Object.values(req.body).some(value => harms.test(value))) {
+                                    res.json
+                                       ({
+                                            error : 'Je gebruikt karakters die niet zijn toegestaan',
+                                            field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+                                        })
+                                } else
+                                {
+                                    // Hash password after validation and before inserting into database
+                                    bcrypt.hash(req.body.password, 10)
+                                          .then(passwdHash => {
+                                              // When the hash is done we set the password to the hashed version
+                                              req.body.password = passwdHash;
 
-                                  // Insert database record
-                                  User.create(req.body)
-                                      .then(data => {
-                                          req.session.token = generateToken([data])
-                                          res.status(200).json({ })
-                                      })
-                                      .catch((err) => res.status(500).json({ error: err.message }));
-                              })
-                              .catch(err => res.status(500).json({ error: err.message }))
-                    }
-                }
-            } else {
+                                              // Insert database record
+                                              User.create(req.body)
+                                                  .then(data => {
+
+                                                      // Set session variables
+                                                      req.session.token = generateToken([data])
+                                                      req.session.name  = req.body.name
+                                                      req.session.email = req.body.email
+
+                                                      res.status(200).json({})
+                                                  })
+                                                  .catch((err) => res.status(500).json({ error: err.message }));
+                                          })
+                                          .catch(err => res.status(500).json({ error: err.message }))
+                                }
+                            }
+                        } else {
+                            res.json
+                               (
+                                   {
+                                       error : 'Email is al in gebruik',
+                                       field : 'email'
+                                   }
+                               )
+                        }
+                    })
+                    .catch(err => {
+                        res.status(500).json(err)
+                    })
+            }
+            else
+            {
                 res.json
                    (
                        {
-                           error : 'Email is al in gebruik',
-                           field : 'email'
+                           error : 'Gebruikersnaam is al in gebruik',
+                           field : 'name'
                        }
                    )
             }
         })
-        .catch(err => {
-            res.status(500).json(err)
-        })
+
 };
 
 const readData = (req, res) => {
