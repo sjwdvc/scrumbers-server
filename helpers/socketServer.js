@@ -72,7 +72,7 @@ module.exports = function(io)
                         // The session page has a join event on load, so this prevents double joins
                         if(!currentSession.clients.some(currentClient => currentClient.email === args.email)){
                             currentSession.clients.push(client);
-                        } else {
+                        } else if(currentSession.admin.email === client.email){
                             currentSession.clients[0]   = client
                             currentSession.admin        = client
                         }
