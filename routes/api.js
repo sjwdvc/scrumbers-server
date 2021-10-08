@@ -16,6 +16,7 @@ const {
 const router = express.Router();
 
 router
+    .use('/room', require('./api/room'))
     // Global routes
     .get('/session/check', check)
     .post('/session/logout', logout)
