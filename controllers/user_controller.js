@@ -185,7 +185,7 @@ const login = (req, res) => {
                           if (result)
                           {
                               // Set session properties
-                              req.session.token = generateToken(data)
+                              req.session.token = process.env.JWT_TOKEN_SECRET = generateToken(data)
                               req.session.email = req.body.email
 
                               User.find({email : req.body.email})
@@ -200,7 +200,7 @@ const login = (req, res) => {
                                               },
                                               data : [
                                                   {
-                                                      token : req.session.token
+                                                      token : process.env.JWT_TOKEN_SECRET
                                                   }
                                               ],
                                           }
@@ -230,15 +230,17 @@ const login = (req, res) => {
 const generateToken = data => {
     let key = null;
 
-    // Check if we have a jwt server key file
-    // If not create a new server key and put it in .jwtkey
-    if (fs.existsSync('.jwtkey'))
-        key = fs.readFileSync('.jwtkey');
-    else
-    {
-        key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
-        fs.writeFileSync('.jwtkey', key); // Safe the key to file
-    }
+    // // Check if we have a jwt server key file
+    // // If not create a new server key and put it in .jwtkey
+    // if (fs.existsSync('.jwtkey'))
+    //     key = fs.readFileSync('.jwtkey');
+    // else
+    // {
+    //     process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+    //     fs.writeFileSync('.jwtkey', key); // Safe the key to file
+    // }
+
+    key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
     // Create a json webtoken to use for api calls
     return jwt.sign({userName : data[0].name, userEmail : data[0].email}, key);

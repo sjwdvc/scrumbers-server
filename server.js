@@ -41,12 +41,12 @@ app.use((req,res, next) => {
     switch(true)
     {
         // First visit to the app
-        case ['/api/user/login', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 && !fs.existsSync('.jwtkey') :
+        case ['/api/user/login', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 :
             next()
             break;
 
         default:
-            jwt.verify(req.headers['authorization'], fs.readFileSync('.jwtkey'), (err, decoded) => {
+            jwt.verify(req.headers['authorization'], process.env.JWT_TOKEN_SECRET, (err, decoded) => {
                 decoded === undefined ? res.status(200).send({error: err, message: 'invalid token'}) : next()
             });
     }
