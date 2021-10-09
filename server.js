@@ -3,6 +3,7 @@ const cors      = require('cors');
 const express   = require('express');
 const es        = require('express-session')
 const fs        = require("fs");
+const jwt = require("jsonwebtoken");
 // parse env variables
 require('dotenv').config();
 
