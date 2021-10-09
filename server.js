@@ -3,7 +3,6 @@ const cors      = require('cors');
 const express   = require('express');
 const es        = require('express-session')
 const fs        = require("fs");
-
 // parse env variables
 require('dotenv').config();
 
@@ -15,7 +14,7 @@ const app = express();
 
 app.set('trust proxy', 1)
 
-// Configure middlewares
+// Configure express session options
 app.use(es({
     secret: 'ssshhhhh',
     saveUninitialized: true,
@@ -35,15 +34,34 @@ app.set('view engine', 'html');
 // Static folder
 app.use(express.static(__dirname + '/views/'));
 
+// Request middleware to verify JWT token on every request
+app.use((req,res, next) => {
+    switch(true)
+    {
+        // First visit to the app
+        case ['/api/user/login', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 && !fs.existsSync('.jwtkey') :
+            next()
+            break;
+
+        default:
+            jwt.verify(req.headers['authorization'], fs.readFileSync('.jwtkey'), function(err, decoded) {
+                if(decoded === undefined)
+                    res.send('invalid token')
+                else
+                {
+                    next()
+                }
+            });
+    }
+})
+
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
 // Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
 // const https     = require('https');
-// const server    = https.createServer({
-//                                      key: fs.readFileSync('./localhost-key.pem'),
-//                                      cert: fs.readFileSync('./localhost.pem'),
-//                                      }, app);
+// const jwt       = require("jsonwebtoken");
+// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
 // const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 // require('./helpers/socketServer')(io);
 // server.listen(port)

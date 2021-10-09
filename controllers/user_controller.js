@@ -20,7 +20,8 @@ const register = (req, res) => {
                         // If no data is found, continue validation, else return an error message to display
                         if (data.length === 0) {
                             // If password is not 8 characters
-                            if (req.body.password.length < 8) {
+                            if (req.body.password.length < 8)
+                            {
                                 res.json
                                    (
                                        {
@@ -28,7 +29,10 @@ const register = (req, res) => {
                                            field : 'password'
                                        }
                                    )
-                            } else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
+                            }
+                            // If password doesn't include a capital letter
+                            else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase()))
+                            {
                                 res.json
                                    (
                                        {
@@ -36,7 +40,11 @@ const register = (req, res) => {
                                            field : 'password'
                                        }
                                    )
-                            } else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+                            }
+
+                            // If password doesn't include a number
+                            else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v))))
+                            {
                                 res.json
                                    (
                                        {
@@ -44,7 +52,9 @@ const register = (req, res) => {
                                            field : 'password',
                                        }
                                    )
-                            } else {
+                            }
+                            else
+                            {
                                 if (Object.values(req.body).some(value => harms.test(value))) {
                                     res.json
                                        ({
@@ -75,7 +85,9 @@ const register = (req, res) => {
                                           .catch(err => res.status(500).json({ error: err.message }))
                                 }
                             }
-                        } else {
+                        }
+                        else
+                        {
                             res.json
                                (
                                    {
@@ -166,11 +178,12 @@ const login = (req, res) => {
                     error: "Gebruiker niet gevonden",
                     field: "email"
                 })
-            else {
+            else
+            {
                 bcrypt.compare(req.body.password, data[0].password)
                       .then(result => {
-                          if (result) {
-
+                          if (result)
+                          {
                               // Set session properties
                               req.session.token = generateToken(data)
                               req.session.email = req.body.email
@@ -193,7 +206,9 @@ const login = (req, res) => {
                                           }
                                       );
                                   })
-                          } else {
+                          }
+                          else
+                          {
                               res.json(
                                   {
                                       error : 'Onjuist wachtwoord',
@@ -214,11 +229,13 @@ const login = (req, res) => {
 
 const generateToken = data => {
     let key = null;
+
     // Check if we have a jwt server key file
     // If not create a new server key and put it in .jwtkey
     if (fs.existsSync('.jwtkey'))
         key = fs.readFileSync('.jwtkey');
-    else {
+    else
+    {
         key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
         fs.writeFileSync('.jwtkey', key); // Safe the key to file
     }

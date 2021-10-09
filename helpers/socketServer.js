@@ -6,7 +6,8 @@ module.exports = function(io)
      * Store all active sessions in an array
      * @type {Array.<Session>} 
      */
-    if(!this.activeSessions) this.activeSessions = []
+    if(!this.activeSessions)
+        this.activeSessions = []
 
     // Listen for connections
     io.on('connection', client => {
@@ -70,9 +71,12 @@ module.exports = function(io)
 
                         // FOR ROOM ADMINS - Check if you are allready pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
-                        if(!currentSession.clients.some(currentClient => currentClient.email === args.email)){
+                        if(!currentSession.clients.some(currentClient => currentClient.email === args.email))
+                        {
                             currentSession.clients.push(client);
-                        } else if(currentSession.admin.email === client.email){
+                        }
+                        else if(currentSession.admin.email === client.email)
+                        {
                             currentSession.clients[0]   = client
                             currentSession.admin        = client
                         }
