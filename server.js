@@ -3,7 +3,8 @@ const cors      = require('cors');
 const express   = require('express');
 const es        = require('express-session')
 const fs        = require("fs");
-const jwt = require("jsonwebtoken");
+const jwt       = require("jsonwebtoken");
+
 // parse env variables
 require('dotenv').config();
 
@@ -45,14 +46,7 @@ app.use((req,res, next) => {
             break;
 
         default:
-            jwt.verify(req.headers['authorization'], fs.readFileSync('.jwtkey'), function(err, decoded) {
-                if(decoded === undefined)
-                    res.send('invalid token')
-                else
-                {
-                    next()
-                }
-            });
+            jwt.verify(req.headers['authorization'], fs.readFileSync('.jwtkey'), (err, decoded) => decoded === undefined ? res.send({error: err, message: 'invalid token'}) : next());
     }
 })
 
@@ -60,17 +54,16 @@ app.use((req,res, next) => {
 app.use('/api', require('./routes/api'));
 
 // Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
-// const https     = require('https');
-// const jwt       = require("jsonwebtoken");
-// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
-// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-// require('./helpers/socketServer')(io);
-// server.listen(port)
-
-// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
-const server    = app.listen(port)
+const https     = require('https');
+const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
 const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 require('./helpers/socketServer')(io);
+server.listen(port)
+
+// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
+// const server    = app.listen(port)
+// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+// require('./helpers/socketServer')(io);
 
 console.log(`Listening On https://localhost:${port}/api`);
 
