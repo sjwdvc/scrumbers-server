@@ -130,6 +130,41 @@ const deleteData = (req, res) => {
         });
 };
 
+const userData = (req, res) => {
+    // Get user data from database
+    User.find({email: req.session.email}) 
+    .then((data) => {
+        res.status(200).json(data);
+    })
+   
+};
+
+const updateUser = (req, res) => { 
+    // Check if all fields are filled
+    if(req.body.age.length > 0 && req.body.name.length > 0 && req.body.function.length > 0 ){
+    // Check for harming characters
+        if (Object.values(req.body).some(value => harms.test(value))) {
+            res.json
+                ({
+                    error : 'Je gebruikt karakters die niet zijn toegestaan',
+                })
+        } else{
+            // Update user information
+            res.json
+            ({
+                error : "" 
+            })
+            User.updateOne({email: req.session.email}, { name: req.body.name , age : req.body.age, function : req.body.function}, { upsert: true }, (err, res) => console.log(err, res))
+        }
+    } else{
+        res.json
+            ({
+                error : 'Vul alle velden in' 
+            })
+    }
+    
+}
+
 /**
  * POST /user/login
  * Lets you login as a user
@@ -150,6 +185,7 @@ const login = (req, res) => {
                           if (result) {
 
                               req.session.token = generateToken(data)
+                              req.session.email = req.body.email
 
                               // Send a response containing the token
                               res.status(200).json(
@@ -203,5 +239,7 @@ module.exports = {
     readData,
     updateData,
     deleteData,
-    login
+    login,
+    userData,
+    updateUser
 };

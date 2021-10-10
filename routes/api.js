@@ -5,7 +5,9 @@ const {
     login,
     readData,
     updateData,
-    deleteData
+    deleteData,
+    userData,
+    updateUser
 } = require('../controllers/user_controller');
 
 const {
@@ -23,6 +25,8 @@ router
     // User routes
     .post('/user/register', register)
     .post('/user/login', login)
+    .get('/user/profile', userData)
+    .post('/user/update', updateUser)
 
 
     .get('/', readData)
