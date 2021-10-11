@@ -14,6 +14,14 @@ const userSchema = new Schema(
             type : String,
             required : [true, 'password field is required'],
         },
+        age : {
+            type : String,
+            required : false,
+        },
+        function : {
+            type : String,
+            required : false,
+        },
     },
     {timestamps : true},
 );

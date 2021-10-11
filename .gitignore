@@ -1,3 +1,6 @@
 node_modules
 .idea
 .env
+.jwtkey
+localhost.pem
+localhost-key.pem
