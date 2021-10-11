@@ -1,12 +1,25 @@
 /**
  * POST /session/check-login
- * Checks wether you are logged in or not by the presence of the json webtoken
+ * Checks wether you are logged in or not
  */
 const check = (req, res) => {
-    if(req.session.token === undefined) res.status(200).json({login: false})
+    // Fix CORS issues
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin)
+
+    if(req.session.token === undefined)
+        res.status(200).json({login: false})
     else
     {
-        res.status(200).json({login: true})
+        res.status(200).json({login: true, email: req.session.email, name: req.session.name})
+    }
+}
+
+const email = (req, res) => {
+    if(req.session.email === undefined)
+        res.status(200).json({email: false})
+    else
+    {
+        res.status(200).json({email: req.session.email})
     }
 }
 
@@ -17,5 +30,6 @@ const logout = (req, res) => {
 
 module.exports = {
     check,
-    logout
+    logout,
+    email
 }

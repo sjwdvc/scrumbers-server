@@ -1,13 +1,9 @@
 // Importing required modules
 const cors      = require('cors');
 const express   = require('express');
-const session   = require('express-session');
-const https     = require('https');
+const es        = require('express-session')
 const fs        = require("fs");
-const options   = {
-    key: fs.readFileSync('./localhost-key.pem'),
-    cert: fs.readFileSync('./localhost.pem'),
-};
+const jwt       = require("jsonwebtoken");
 
 // parse env variables
 require('dotenv').config();
@@ -16,12 +12,12 @@ require("./helpers/db/mongodb.js")();
 
 // Configuring port
 const port = process.env.PORT || 5555;
-
 const app = express();
 
-// Configure middlewares
+app.set('trust proxy', 1)
 
-app.use(session({
+// Configure express session options
+app.use(es({
     secret: 'ssshhhhh',
     saveUninitialized: true,
     resave: true,
@@ -32,7 +28,7 @@ app.use(session({
     }
 }));
 
-app.use(cors({origin: ['https://scrumbers-client.herokuapp.com/', '*'], methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
+app.use(cors({origin: ['https://scrumbers-client.herokuapp.com', 'https://localhost:8081'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'html');
@@ -40,14 +36,36 @@ app.set('view engine', 'html');
 // Static folder
 app.use(express.static(__dirname + '/views/'));
 
+// Request middleware to verify JWT token on every request
+app.use((req,res, next) => {
+    switch(true)
+    {
+        // First visit to the app
+        case ['/api/user/login', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 :
+            next()
+            break;
+
+        default:
+            jwt.verify(req.headers['authorization'], process.env.JWT_TOKEN_SECRET, (err, decoded) => {
+                decoded === undefined ? res.status(200).send({error: err, message: 'invalid token'}) : next()
+            });
+    }
+})
+
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
-// Start the socket server
-require('./helpers/socketServer')(app);
+// Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
+// const https     = require('https');
+// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
+// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+// require('./helpers/socketServer')(io);
+// server.listen(port)
 
-// Listening to port
-https.createServer(options, app).listen(port)
+// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
+const server    = app.listen(port)
+const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+require('./helpers/socketServer')(io);
 
 console.log(`Listening On https://localhost:${port}/api`);
 

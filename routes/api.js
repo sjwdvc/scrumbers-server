@@ -19,15 +19,15 @@ const router = express.Router();
 
 router
     // Global routes
-    .get('/session/check', check)
     .post('/session/logout', logout)
+    .post('/session/check', check)
+
 
     // User routes
     .post('/user/register', register)
     .post('/user/login', login)
     .get('/user/profile', userData)
     .post('/user/update', updateUser)
-
 
     .get('/', readData)
     .put('/:id', updateData)
