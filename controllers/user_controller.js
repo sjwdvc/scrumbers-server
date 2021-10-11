@@ -165,12 +165,20 @@ const deleteData = (req, res) => {
 };
 
 const userData = (req, res) => {
+    console.log('reading user data')
+
     // Get user data from database
     User.find({email: req.session.email}) 
     .then((data) => {
-        res.status(200).json(data);
+        console.log(data)
+        res.status(200).json({
+            name:       data[0].name || '',
+            email:      data[0].email || '',
+            age:        data[0].age || 0,
+            function:   data[0].function || ''
+                             });
+        console.log(process.env.JWT_TOKEN_SECRET)
     })
-   
 };
 
 const updateUser = (req, res) => { 
@@ -220,8 +228,9 @@ const login = (req, res) => {
                           if (result)
                           {
                               // Set session properties
-                              req.session.token = process.env.JWT_TOKEN_SECRET = generateToken(data)
+                              req.session.token = generateToken(data)
                               req.session.email = req.body.email
+
                               User.find({email : req.body.email})
                                   .then(data => {
                                       req.session.name = data[0].name
@@ -233,7 +242,7 @@ const login = (req, res) => {
                                               },
                                               data : [
                                                   {
-                                                      token : process.env.JWT_TOKEN_SECRET
+                                                      token : req.session.token
                                                   }
                                               ],
                                           }
@@ -261,22 +270,13 @@ const login = (req, res) => {
 }
 
 const generateToken = data => {
-    let key = null;
-
     // // Check if we have a jwt server key file
     // // If not create a new server key and put it in .jwtkey
-    // if (fs.existsSync('.jwtkey'))
-    //     key = fs.readFileSync('.jwtkey');
-    // else
-    // {
-    //     process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
-    //     fs.writeFileSync('.jwtkey', key); // Safe the key to file
-    // }
-
-    key = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+    if (process.env.JWT_TOKEN_SECRET === "")
+        process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
     // Create a json webtoken to use for api calls
-    return jwt.sign({userName : data[0].name, userEmail : data[0].email}, key);
+    return jwt.sign({userName : data[0].name, userEmail : data[0].email}, process.env.JWT_TOKEN_SECRET);
 }
 
 module.exports = {

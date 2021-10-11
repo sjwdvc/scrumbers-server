@@ -56,16 +56,16 @@ app.use((req,res, next) => {
 app.use('/api', require('./routes/api'));
 
 // Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
-// const https     = require('https');
-// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
-// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-// require('./helpers/socketServer')(io);
-// server.listen(port)
-
-// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
-const server    = app.listen(port)
+const https     = require('https');
+const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
 const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
 require('./helpers/socketServer')(io);
+server.listen(port)
+
+// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
+// const server    = app.listen(port)
+// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+// require('./helpers/socketServer')(io);
 
 console.log(`Listening On https://localhost:${port}/api`);
 
