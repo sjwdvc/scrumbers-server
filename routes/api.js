@@ -18,16 +18,8 @@ const {
 const router = express.Router();
 
 router
-    // Global routes
-    .post('/session/logout', logout)
-    .post('/session/check', check)
-
-
-    // User routes
-    .post('/user/register', register)
-    .post('/user/login', login)
-    .get('/user/profile', userData)
-    .post('/user/update', updateUser)
+    .use('/session', require('./api/session'))
+    .use('/user', require('./api/user'))
 
     .get('/', readData)
     .put('/:id', updateData)

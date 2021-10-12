@@ -68,5 +68,4 @@ const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["G
 require('./helpers/socketServer')(io);
 
 console.log(`Listening On https://localhost:${port}/api`);
-
 module.exports = app;
