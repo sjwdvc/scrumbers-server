@@ -55,17 +55,20 @@ app.use((req,res, next) => {
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
-// Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
-// const https     = require('https');
-// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
-// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-// require('./helpers/socketServer')(io);
-// server.listen(port)
-
-// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
-const server    = app.listen(port)
-const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-require('./helpers/socketServer')(io);
+if(process.env.PRODUCTION_CONFIG)
+{
+    const server    = app.listen(port)
+    const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+    require('./helpers/socketServer')(io);
+}
+else
+{
+    const https     = require('https');
+    const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
+    const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+    require('./helpers/socketServer')(io);
+    server.listen(port)
+}
 
 console.log(`Listening On https://localhost:${port}/api`);
 module.exports = app;
