@@ -165,19 +165,16 @@ const deleteData = (req, res) => {
 };
 
 const userData = (req, res) => {
-    console.log('reading user data')
 
     // Get user data from database
     User.find({email: req.session.email}) 
     .then((data) => {
-        console.log(data)
         res.status(200).json({
             name:       data[0].name || '',
             email:      data[0].email || '',
             age:        data[0].age || 0,
             function:   data[0].function || ''
                              });
-        console.log(process.env.JWT_TOKEN_SECRET)
     })
 };
 
@@ -270,8 +267,6 @@ const login = (req, res) => {
 }
 
 const generateToken = data => {
-    // // Check if we have a jwt server key file
-    // // If not create a new server key and put it in .jwtkey
     if (process.env.JWT_TOKEN_SECRET === "")
         process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 

@@ -29,12 +29,12 @@ module.exports = function(io)
                     {
                         // Check if the host is equal to trello
                         case args.url[2] !== "trello.com":
-                            client.emit('urlError', {error: "alleen trello URL's toegestaan"})
+                            client.emit('urlError', {error: "Only valid Trello url's allowed"})
                             break;
 
                         // Check if the amount of url split parts is equal to 6.
                         case args.url.length < 6:
-                            client.emit('urlError', {error: "Voer een geldige trello url in"})
+                            client.emit('urlError', {error: "Enter a valid Trello url"})
                             break;
 
                         // Continue when no errors are foundd
