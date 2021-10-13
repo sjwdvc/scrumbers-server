@@ -25,7 +25,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 8 karakters bevatten',
+                                           error : 'Password requires at least 8 characters',
                                            field : 'password'
                                        }
                                    )
@@ -36,7 +36,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 1 hoofdletter bevatten',
+                                           error : 'Password requires at least 1 capital letter',
                                            field : 'password'
                                        }
                                    )
@@ -48,7 +48,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 1 cijfer bevatten',
+                                           error : 'Password requires at least 1 number',
                                            field : 'password',
                                        }
                                    )
@@ -58,7 +58,7 @@ const register = (req, res) => {
                                 if (Object.values(req.body).some(value => harms.test(value))) {
                                     res.json
                                        ({
-                                            error : 'Je gebruikt karakters die niet zijn toegestaan',
+                                            error : 'Some characters are not allowed',
                                             field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
                                         })
                                 } else
@@ -91,7 +91,7 @@ const register = (req, res) => {
                             res.json
                                (
                                    {
-                                       error : 'Email is al in gebruik',
+                                       error : 'Email is already taken',
                                        field : 'email'
                                    }
                                )
@@ -106,7 +106,7 @@ const register = (req, res) => {
                 res.json
                    (
                        {
-                           error : 'Gebruikersnaam is al in gebruik',
+                           error : 'Username is already taken',
                            field : 'name'
                        }
                    )
@@ -188,7 +188,7 @@ const updateUser = (req, res) => {
         if (Object.values(req.body).some(value => harms.test(value))) {
             res.json
                 ({
-                    error : 'Je gebruikt karakters die niet zijn toegestaan',
+                    error : 'Some characters are not allowed',
                 })
         } else{
             // Update user information
@@ -201,7 +201,7 @@ const updateUser = (req, res) => {
     } else{
         res.json
             ({
-                error : 'Vul alle velden in' 
+                error : 'Please fill out all the fields'
             })
     }
     
@@ -218,7 +218,7 @@ const login = (req, res) => {
         .then(data => {
             if (data.length === 0) res.json(
                 {
-                    error: "Gebruiker niet gevonden",
+                    error: "User not found",
                     field: "email"
                 })
             else
@@ -253,7 +253,7 @@ const login = (req, res) => {
                           {
                               res.json(
                                   {
-                                      error : 'Onjuist wachtwoord',
+                                      error : 'Invalid password',
                                       field : 'password'
                                   }
                               );
