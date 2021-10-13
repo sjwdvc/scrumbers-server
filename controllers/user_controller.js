@@ -267,8 +267,9 @@ const login = (req, res) => {
 }
 
 const generateToken = data => {
-    if (process.env.JWT_TOKEN_SECRET === "")
-        process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+    // Secret is now stored in heroku config
+    // if (process.env.JWT_TOKEN_SECRET === "")
+    //     process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
     // Create a json webtoken to use for api calls
     return jwt.sign({userName : data[0].name, userEmail : data[0].email}, process.env.JWT_TOKEN_SECRET);
