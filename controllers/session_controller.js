@@ -25,8 +25,7 @@ const email = (req, res) => {
 
 const logout = (req, res) => {
     req.session.token = undefined
-    process.env.JWT_TOKEN_SECRET = ""
-    res.status(200).json()
+    res.status(200).json()  
 }
 
 module.exports = {
