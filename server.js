@@ -46,9 +46,6 @@ app.use((req,res, next) => {
             break;
 
         default:
-            console.log(process.env.JWT_TOKEN_SECRET)
-            console.log(req.headers['authorization'])
-
             jwt.verify(req.headers['authorization'], process.env.JWT_TOKEN_SECRET, (err, decoded) => {
                 decoded === undefined ? res.status(200).send({error: err, message: 'invalid token', secret: process.env.JWT_TOKEN_SECRET, token: req.headers['authorization']}) : next()
             });

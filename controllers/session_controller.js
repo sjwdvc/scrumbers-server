@@ -25,7 +25,7 @@ const email = (req, res) => {
 
 const logout = (req, res) => {
     req.session.token = undefined
-    res.status(200).json()  
+    res.status(200).json()
 }
 
 module.exports = {
