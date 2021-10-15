@@ -28,7 +28,7 @@ app.use(es({
     }
 }));
 
-app.use(cors({origin: ['https://scrumbers-client.herokuapp.com', 'https://localhost:8081'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
+app.use(cors({origin: ['https://scrumbers-client.herokuapp.com', 'https://localhost:8080'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'html');
