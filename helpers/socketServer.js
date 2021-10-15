@@ -51,43 +51,12 @@ module.exports = function(io)
 
                             // Return the session key to front end
                             client.emit('createRoom', {key: key});
+                        }).catch(err => {
+                            client.emit('urlError', {error: "Invalid Trello board"});
                         });
                     }
                     else
-                        client.emit('urlError', {error: "Only valid Trello url's allowed"})
-
-                    // Split Trello URL into an array
-                    args.url = args.url.split('/')
-
-                    // Trello URL validation
-                    /*switch(true)
-                    {
-                        // Check if the host is equal to trello
-                        case args.url[2] !== "trello.com":
-                            break;
-
-                        // Check if the amount of url split parts is equal to 6.
-                        case args.url.length < 6:
-                            break;
-
-                        // Continue when no errors are foundd
-                        default:
-                        {
-                            // Set each client credentials
-                            client.name     = args.name
-                            client.email    = args.email
-
-                            // Create session with key
-                            let key         = Math.ceil(Math.random() * 34234237233242);
-                            let session     = new Session(client, key);
-
-                            // Push to active sessions
-                            this.activeSessions.push(session);
-
-                            // Return the session key to front end
-                            client.emit('createRoom', {key: key})
-                        }
-                    }*/
+                        client.emit('urlError', {error: "Only valid Trello url's allowed"});
                 break;
 
                 case 'join':
