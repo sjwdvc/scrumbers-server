@@ -1,4 +1,5 @@
-const { Socket} = require('socket.io');
+const { Socket } = require('socket.io');
+const { TrelloApi, Board } = require('./trelloApi');
 
 module.exports = function(io)
 {
@@ -21,20 +22,52 @@ module.exports = function(io)
             {
                 case 'create':
 
+                    // Check if the URL is a trello link
+                    let match = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0];
+                    if (match)
+                    {
+                        // Check if the url is a valid trello board
+                        let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
+                        // trello.boardExists(match[1]).then(res => {
+                        //     console.log(res);
+                        // }).catch(err => {
+                        //     console.log(err);
+                        // });
+                        trello.getBoard(match[1]).then(res => {
+                            // Set each client credentials
+                            client.name     = args.name;
+                            client.email    = args.email;
+
+                            // Create session with key
+                            let key         = Math.ceil(Math.random() * 34234237233242);
+                            let session     = new Session(client, key);
+                            
+                            // Give our board to the session
+                            session.trelloBoard = res;
+                            session.trelloApi   = trello;
+
+                            // Push to active sessions
+                            this.activeSessions.push(session);
+
+                            // Return the session key to front end
+                            client.emit('createRoom', {key: key});
+                        });
+                    }
+                    else
+                        client.emit('urlError', {error: "Only valid Trello url's allowed"})
+
                     // Split Trello URL into an array
                     args.url = args.url.split('/')
 
                     // Trello URL validation
-                    switch(true)
+                    /*switch(true)
                     {
                         // Check if the host is equal to trello
                         case args.url[2] !== "trello.com":
-                            client.emit('urlError', {error: "Only valid Trello url's allowed"})
                             break;
 
                         // Check if the amount of url split parts is equal to 6.
                         case args.url.length < 6:
-                            client.emit('urlError', {error: "Enter a valid Trello url"})
                             break;
 
                         // Continue when no errors are foundd
@@ -54,7 +87,7 @@ module.exports = function(io)
                             // Return the session key to front end
                             client.emit('createRoom', {key: key})
                         }
-                    }
+                    }*/
                 break;
 
                 case 'join':
@@ -88,7 +121,7 @@ module.exports = function(io)
                     } else console.log(`session is not created`)
                 break;
             }
-        })
+        });
     });
 }
 
@@ -99,6 +132,17 @@ class Session
      * @type {Array.<Socket>}
      */
     clients = [];
+
+    /**
+     * The api object authorized for this session
+     * @type {TrelloApi}
+     */
+    trelloApi = null;
+    /**
+     * The trello board used in this session
+     * @type {Board}
+     */
+    trelloBoard = null;
 
     /**
      * Create a new session
