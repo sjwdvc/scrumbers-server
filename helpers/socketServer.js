@@ -28,11 +28,7 @@ module.exports = function(io)
                     {
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
-                        // trello.boardExists(match[1]).then(res => {
-                        //     console.log(res);
-                        // }).catch(err => {
-                        //     console.log(err);
-                        // });
+
                         trello.getBoard(match[1]).then(res => {
                             // Set each client credentials
                             client.name     = args.name;
@@ -61,7 +57,9 @@ module.exports = function(io)
 
                 case 'join':
                     // // Check if there is a session with the key the client is using to join
-                    currentSession = this.activeSessions.find(session => session.key === args.key);
+                    currentSession = this.activeSessions.find(session => {
+                        return session.key == args.key;
+                    });
 
                     // If a session is found, continue
                     if (currentSession !== undefined)
@@ -71,24 +69,36 @@ module.exports = function(io)
                         client.name     = args.name
                         client.email    = args.email
 
-                        // FOR ROOM ADMINS - Check if you are allready pushed to the clients array when creating the room.
+                        // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
                         if(!currentSession.clients.some(currentClient => currentClient.email === args.email))
                         {
                             currentSession.clients.push(client);
                         }
+
+                        // If you're the admin and you're trying to reconnect with a different client. replace the old clients and the admin socket
                         else if(currentSession.admin.email === client.email)
                         {
                             currentSession.clients[0]   = client
                             currentSession.admin        = client
                         }
 
+                        // Replace the old client with a different connection id with the new client by using the registered and parameter email
+                        else
+                        {
+                            currentSession.clients[currentSession.clients.indexOf(currentSession.clients.find(c => c.email === args.email))] = client
+                        }
+
                         // Create a overview of all users in the current session and return to the client
                         let users = []
                         currentSession.clients.forEach(client => users.push(client.name));
-                        currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name})
-                    } else console.log(`session is not created`)
+                        currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started})
+                    } else client.emit('undefinedSession');
                 break;
+
+                case 'start':
+                    this.activeSessions.find(session => session.key == args.key).start()
+                    break;
             }
         });
     });
@@ -107,6 +117,7 @@ class Session
      * @type {TrelloApi}
      */
     trelloApi = null;
+
     /**
      * The trello board used in this session
      * @type {Board}
@@ -120,8 +131,9 @@ class Session
      */
     constructor(admin, key)
     {
-        this.key = key;
-        this.admin = admin
+        this.key        = key
+        this.admin      = admin
+        this.started    = false
         this.clients.push(admin)
     }
 
@@ -133,6 +145,7 @@ class Session
 
     start()
     {
-
+        this.started = true;
+        this.clients.forEach(client => client.emit('started'));
     }
 }
