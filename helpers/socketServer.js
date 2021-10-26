@@ -99,6 +99,17 @@ module.exports = function(io)
                 case 'start':
                     this.activeSessions.find(session => session.key == args.key).start()
                     break;
+
+                case 'leave':
+                    currentSession = this.activeSessions.find(session => session.key == args.key)
+                    let leavingClient = currentSession.clients.find(client => client.email === args.email)
+                    currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1)
+
+
+                    let users = []
+                    currentSession.clients.forEach(client => users.push(client.name));
+                    currentSession.broadcast('leftSession', {userLeft: client.name, users: users})
+                    break;
             }
         });
     });
