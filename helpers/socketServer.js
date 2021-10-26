@@ -66,8 +66,8 @@ module.exports = function(io)
                     {
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
-                        client.name     = args.name
-                        client.email    = args.email
+                        client.name     = args.name;
+                        client.email    = args.email;
 
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
@@ -79,8 +79,8 @@ module.exports = function(io)
                         // If you're the admin and you're trying to reconnect with a different client. replace the old clients and the admin socket
                         else if(currentSession.admin.email === client.email)
                         {
-                            currentSession.clients[0]   = client
-                            currentSession.admin        = client
+                            currentSession.clients[0]   = client;
+                            currentSession.admin        = client;
                         }
 
                         // Replace the old client with a different connection id with the new client by using the registered and parameter email
@@ -90,25 +90,24 @@ module.exports = function(io)
                         }
 
                         // Create a overview of all users in the current session and return to the client
-                        let users = []
+                        let users = [];
                         currentSession.clients.forEach(client => users.push(client.name));
-                        currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started})
+                        currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started});
                     } else client.emit('undefinedSession');
                 break;
 
                 case 'start':
-                    this.activeSessions.find(session => session.key == args.key).start()
+                    this.activeSessions.find(session => session.key == args.key).start();
                     break;
 
                 case 'leave':
-                    currentSession = this.activeSessions.find(session => session.key == args.key)
-                    let leavingClient = currentSession.clients.find(client => client.email === args.email)
-                    currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1)
+                    currentSession = this.activeSessions.find(session => session.key == args.key);
+                    let leavingClient = currentSession.clients.find(client => client.email === args.email);
+                    currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
-
-                    let users = []
+                    let users = [];
                     currentSession.clients.forEach(client => users.push(client.name));
-                    currentSession.broadcast('leftSession', {userLeft: client.name, users: users})
+                    currentSession.broadcast('leftSession', {userLeft: client.name, users: users});
                     break;
             }
         });
