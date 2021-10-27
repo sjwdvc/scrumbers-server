@@ -29,10 +29,11 @@ module.exports = function(io)
                     let match = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0];
                     if (match)
                     {
+                        console.log("creating...");
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
 
-                        trello.getBoard(match[1]).then(res => {
+                        trello.getBoard(match[1]).then(board => {
                             // Set each client credentials
                             client.name     = args.name;
                             client.email    = args.email;
@@ -43,23 +44,24 @@ module.exports = function(io)
                                 let session = new Session(client, key, data[0]._id);
                                 
                                 // Give our board to the session
-                                session.trelloBoard = res;
+                                session.trelloBoard = board;
                                 session.trelloApi   = trello;
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
                                 
                                 // Read all features from the backlog
-                                trello.getListByName(res.id, "backlog").then(backlog => {
+                                console.log("getting backlog");
+                                trello.getListByName(board.id, "backlog").then(backlog => {
                                     session.backlog = backlog;
-                                    trello.getCardsFromList(res.id).then(cards => {
+                                    console.log("getting cards");
+                                    trello.getCardsFromList(session.backlog.id).then(cards => {
                                         session.backlog.cards = cards;
+                                        console.log(session.backlog);
                                         // Return the session key to front end
                                         client.emit('createRoom', {key: key});
-                                    });
-                                });                        
-                            }).then(err => {
-                                client.emit('urlError', {error: "Can not find user: " + args.email});
+                                    }).catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
+                                }).catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
                             });
                         }).catch(err => {
                             client.emit('urlError', {error: "Invalid Trello board"});
@@ -70,7 +72,7 @@ module.exports = function(io)
                 break;
 
                 case 'join':
-                    // // Check if there is a session with the key the client is using to join
+                    // Check if there is a session with the key the client is using to join
                     currentSession = this.activeSessions.find(session => {
                         return session.key == args.key;
                     });
@@ -124,6 +126,30 @@ module.exports = function(io)
                     currentSession.broadcast('leftSession', {userLeft: client.name, users: users});
                     break;
             }
+        });
+        client.on('feature', args => {
+            // Get the session we want to change the feature for
+            /**
+             * @type {Session}
+             */
+            let currentSession = this.activeSessions.find(session => {
+                return session.key == args.key;
+            });
+            
+           switch (args.event)
+           {
+                case 'next':
+                    let feature = currentSession.nextFeature();
+                    currentSession.broadcast('nextFeature', { feature: { name: feature.name, desc: feature.desc } });
+                break;
+
+                case 'submit':
+                    // Verwacht:
+                    // args.key -Get the session
+                    // args.number -The number to add to the card
+                    // args.desc -Explains the number
+                break;
+           } 
         });
     });
 }
@@ -195,13 +221,15 @@ class Session
         }).catch((err) => console.error(err));
     }
     
-    
+
+    #featurePointer = 0;
     /**
      * Gets the next feature from the backlog
      * @returns {Card}
      */
     nextFeature()
     {
-
+        this.#featurePointer++;
+        return this.backlog.cards[this.#featurePointer];
     }
 }
