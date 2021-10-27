@@ -74,11 +74,11 @@ const register = (req, res) => {
                                                   .then(data => {
 
                                                       // Set session variables
-                                                      req.session.token = generateToken([data])
-                                                      req.session.name  = req.body.name
-                                                      req.session.email = req.body.email
+                                                      req.session.token = generateToken([data]);
+                                                      req.session.name  = req.body.name;
+                                                      req.session.email = req.body.email;
 
-                                                      res.status(200).json({})
+                                                      res.status(200).json({});
                                                   })
                                                   .catch((err) => res.status(500).json({ error: err.message }));
                                           })

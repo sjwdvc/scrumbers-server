@@ -1,5 +1,8 @@
-const { Socket } = require('socket.io');
-const { TrelloApi, Board } = require('./trelloApi');
+const { Socket }    = require('socket.io');
+const SessionObject = require('../models/session_schema');
+const User          = require('../models/user_schema');
+const { Types }     = require('mongoose');
+const { TrelloApi, Board, List, Card } = require('./trelloApi');
 
 module.exports = function(io)
 {
@@ -35,18 +38,29 @@ module.exports = function(io)
                             client.email    = args.email;
 
                             // Create session with key
-                            let key         = Math.ceil(Math.random() * 34234237233242);
-                            let session     = new Session(client, key);
-                            
-                            // Give our board to the session
-                            session.trelloBoard = res;
-                            session.trelloApi   = trello;
-
-                            // Push to active sessions
-                            this.activeSessions.push(session);
-
-                            // Return the session key to front end
-                            client.emit('createRoom', {key: key});
+                            let key = Math.ceil(Math.random() * 34234237233242);
+                            User.find({ email: client.email }).then(data => {
+                                let session = new Session(client, key, data[0]._id);
+                                
+                                // Give our board to the session
+                                session.trelloBoard = res;
+                                session.trelloApi   = trello;
+    
+                                // Push to active sessions
+                                this.activeSessions.push(session);
+                                
+                                // Read all features from the backlog
+                                trello.getListByName(res.id, "backlog").then(backlog => {
+                                    session.backlog = backlog;
+                                    trello.getCardsFromList(res.id).then(cards => {
+                                        session.backlog.cards = cards;
+                                        // Return the session key to front end
+                                        client.emit('createRoom', {key: key});
+                                    });
+                                });                        
+                            }).then(err => {
+                                client.emit('urlError', {error: "Can not find user: " + args.email});
+                            });
                         }).catch(err => {
                             client.emit('urlError', {error: "Invalid Trello board"});
                         });
@@ -135,16 +149,29 @@ class Session
     trelloBoard = null;
 
     /**
+     * The trello backlog list
+     * @type {List}
+     */
+    backlog = null;
+
+    /**
+     * The database object for this session
+     * @type {SessionObject}
+     */
+    dbObject = null;
+
+    /**
      * Create a new session
      * @param {Socket} admin - The user who created the session
      * @param {number} key - Users can join with this key
      */
-    constructor(admin, key)
+    constructor(admin, key, adminID)
     {
-        this.key        = key
-        this.admin      = admin
-        this.started    = false
-        this.clients.push(admin)
+        this.key        = key;
+        this.admin      = admin;
+        this.adminID    = adminID;
+        this.started    = false;
+        this.clients.push(admin);
     }
 
     broadcast(event, args)
@@ -157,5 +184,24 @@ class Session
     {
         this.started = true;
         this.clients.forEach(client => client.emit('started'));
+        console.log(typeof(this.adminID)+ ': ', this.adminID);
+        SessionObject.create(
+            {
+                admin: Types.ObjectId(this.adminID),
+                features: []
+            }
+        ).then(data => {
+            console.log("Session Created!", data);
+        }).catch((err) => console.error(err));
+    }
+    
+    
+    /**
+     * Gets the next feature from the backlog
+     * @returns {Card}
+     */
+    nextFeature()
+    {
+
     }
 }
