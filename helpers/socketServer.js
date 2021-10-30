@@ -148,6 +148,16 @@ module.exports = function(io)
                     // args.key -Get the session
                     // args.number -The number to add to the card
                     // args.desc -Explains the number
+                    if (!currentSession.submits.includes(args.email))
+                    {
+                        currentSession.submits.push(args.email);
+                        // TODO:
+                        // Add the submition to the database so we can add it to the chat
+
+                        // Check if all clients submited a value
+                        if (currentSession.submits.length == currentSession.clients.length)
+                            currentSession.loadNextState();
+                    }
                 break;
            } 
         });
@@ -156,6 +166,18 @@ module.exports = function(io)
 
 class Session
 {
+    /**
+     * The state of our session
+     * @type {'waiting'|'round1'|'chat'|'round2'}
+     */
+    state = 'waiting';
+
+    /**
+     * A array of all clients that submitted 
+     * @type {Array.<string>}
+     */
+    submits = {};
+
     /**
      * Stores all connected clients
      * @type {Array.<Socket>}
@@ -200,16 +222,20 @@ class Session
         this.clients.push(admin);
     }
 
+    /**
+     * Emit an event to all clients connected to this session
+     * @param {string} event 
+     * @param {Object} args 
+     */
     broadcast(event, args)
     {
-        // Emit the message to all clients connected to this session
         this.clients.forEach(client => client.emit(event, args));
     }
 
     start()
     {
         this.started = true;
-        this.clients.forEach(client => client.emit('started'));
+        this.broadcast('started'); // Remove?
         console.log(typeof(this.adminID)+ ': ', this.adminID);
         SessionObject.create(
             {
@@ -218,9 +244,42 @@ class Session
             }
         ).then(data => {
             console.log("Session Created!", data);
+            loadNextState();
         }).catch((err) => console.error(err));
     }
     
+    /**
+     * Loads the next state of the game
+     */
+    loadNextState()
+    {
+        switch(this.state)
+        {
+            case 'waiting':
+                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                this.state = 'round1';
+            break;
+            case 'round1':
+                // TODO:
+                // Give initial chat data to the clients
+                currentSession.broadcast('load', { toLoad: 'chat', data: { } });
+                this.state = 'chat';
+            break;
+            case 'chat':
+                // TODO:
+                // Give the previous choce to all the clients
+                // So use foreach instead of broadcast
+                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.#featurePointer] } });
+                this.state = 'round2';
+            break;
+            case 'round2':
+                // TODO:
+                // Add the use who 'won' the game to the feature card
+
+                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+            break;
+        }
+    }
 
     #featurePointer = 0;
     /**
@@ -229,7 +288,6 @@ class Session
      */
     nextFeature()
     {
-        this.#featurePointer++;
-        return this.backlog.cards[this.#featurePointer];
+        return this.backlog.cards[this.#featurePointer++];
     }
 }
