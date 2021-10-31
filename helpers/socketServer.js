@@ -84,6 +84,9 @@ module.exports = function(io)
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
                         client.email    = args.email;
+                        User.find({ email: args.email }).then(data => {
+                            client.uid = Types.ObjectId(data[0]._id);
+                        });
 
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
@@ -144,17 +147,33 @@ module.exports = function(io)
                 break;
 
                 case 'submit':
-                    // Verwacht:
-                    // args.key -Get the session
-                    // args.number -The number to add to the card
-                    // args.desc -Explains the number
+                    // Check if during this state of the game we should be able to submit
+                    if (currentSession.state != 'round1' && currentSession.state != 'round2') 
+                    {
+                        client.emit('error', { error: 'You can not submit during this state of the game' });
+                        return;
+                    }
+
+                    // Check if the client has already submitted a value
                     if (!currentSession.submits.includes(args.email))
                     {
+                        // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
-                        // TODO:
-                        // Add the submition to the database so we can add it to the chat
+                        // Push the vote and chat message to the database
+                        SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
+                            $push: {
+                                'features.$.votes': {
+                                    user: client.uid,
+                                    value: args.number
+                                },
+                                'features.$.chat': {
+                                    user: client.uid,
+                                    value: args.desc
+                                }
+                            }
+                        });
 
-                        // Check if all clients submited a value
+                        // Check if all clients have submitted a value
                         if (currentSession.submits.length == currentSession.clients.length)
                             currentSession.loadNextState();
                     }
@@ -204,9 +223,9 @@ class Session
 
     /**
      * The database object for this session
-     * @type {SessionObject}
+     * @type {{_id: Types.ObjectId, admin: Types.ObjectId, features: Array.<{votes: Array.<{user: Types.ObjectId, value: Number}>, chat: Array.<{user: Types.ObjectId, value: string}>}>}}
      */
-    dbObject = null;
+    dbData = null;
 
     /**
      * Create a new session
@@ -236,14 +255,13 @@ class Session
     {
         this.started = true;
         this.broadcast('started'); // Remove?
-        console.log(typeof(this.adminID)+ ': ', this.adminID);
         SessionObject.create(
             {
                 admin: Types.ObjectId(this.adminID),
                 features: []
             }
         ).then(data => {
-            console.log("Session Created!", data);
+             this.dbData = data;
             loadNextState();
         }).catch((err) => console.error(err));
     }
@@ -267,27 +285,35 @@ class Session
             break;
             case 'chat':
                 // TODO:
-                // Give the previous choce to all the clients
+                // Give the previous choice of the client back so the client can see thier previous choice and change or hold it
                 // So use foreach instead of broadcast
-                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.#featurePointer] } });
+                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
                 this.state = 'round2';
             break;
             case 'round2':
                 // TODO:
-                // Add the use who 'won' the game to the feature card
-
+                // Add the client who 'won' the game to the feature card
                 currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
             break;
         }
     }
 
-    #featurePointer = 0;
+    featurePointer = 0;
     /**
      * Gets the next feature from the backlog
      * @returns {Card}
      */
     nextFeature()
     {
-        return this.backlog.cards[this.#featurePointer++];
+        // Add a new empty feature object to the database
+        SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
+            $push: {
+                'features': {
+                    votes : [],
+                    chat: []
+                }
+            }
+        });
+        return this.backlog.cards[this.featurePointer++];
     }
 }
