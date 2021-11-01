@@ -19,7 +19,7 @@ module.exports = function(io)
         // Activate when client sends a session event
         client.on('session', args => {
 
-            let currentSession
+            let currentSession;
 
             switch(args.event)
             {
@@ -42,14 +42,23 @@ module.exports = function(io)
                             let key = Math.ceil(Math.random() * 34234237233242);
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
-                                
+                                // Create a session in teh database
+                                SessionObject.create(
+                                    {
+                                        admin: Types.ObjectId(session.adminID),
+                                        features: []
+                                    }
+                                ).then(data => {
+                                    session.dbData = data;
+                                }).catch((err) => console.error(err));
+
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
-                                
+
                                 // Read all features from the backlog
                                 console.log("getting backlog");
                                 trello.getListByName(board.id, "backlog").then(backlog => {
@@ -116,7 +125,7 @@ module.exports = function(io)
                 break;
 
                 case 'start':
-                    this.activeSessions.find(session => session.key == args.key).start();
+                    this.activeSessions.find(session => session.key == args.key)?.start();
                     break;
 
                 case 'leave':
@@ -141,12 +150,8 @@ module.exports = function(io)
             
            switch (args.event)
            {
-                case 'next':
-                    let feature = currentSession.nextFeature();
-                    currentSession.broadcast('nextFeature', { feature: { name: feature.name, desc: feature.desc } });
-                break;
-
                 case 'submit':
+                    console.log("submit: ", args);
                     // Check if during this state of the game we should be able to submit
                     if (currentSession.state != 'round1' && currentSession.state != 'round2') 
                     {
@@ -195,7 +200,7 @@ class Session
      * A array of all clients that submitted 
      * @type {Array.<string>}
      */
-    submits = {};
+    submits = [];
 
     /**
      * Stores all connected clients
@@ -255,15 +260,7 @@ class Session
     {
         this.started = true;
         this.broadcast('started'); // Remove?
-        SessionObject.create(
-            {
-                admin: Types.ObjectId(this.adminID),
-                features: []
-            }
-        ).then(data => {
-             this.dbData = data;
-            loadNextState();
-        }).catch((err) => console.error(err));
+        this.loadNextState();
     }
     
     /**
@@ -271,29 +268,34 @@ class Session
      */
     loadNextState()
     {
+        console.log('Loading next state');
         switch(this.state)
         {
             case 'waiting':
-                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                //this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                // OLD:
+                let feature = this.nextFeature();
+                this.broadcast('nextFeature', { feature: { name: feature.name, desc: feature.desc } });
+                // END
                 this.state = 'round1';
             break;
             case 'round1':
                 // TODO:
                 // Give initial chat data to the clients
-                currentSession.broadcast('load', { toLoad: 'chat', data: { } });
+                this.broadcast('load', { toLoad: 'chat', data: { } });
                 this.state = 'chat';
             break;
             case 'chat':
                 // TODO:
                 // Give the previous choice of the client back so the client can see thier previous choice and change or hold it
                 // So use foreach instead of broadcast
-                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
+                this.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
                 this.state = 'round2';
             break;
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
-                currentSession.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
             break;
         }
     }
@@ -306,11 +308,15 @@ class Session
     nextFeature()
     {
         // Add a new empty feature object to the database
-        SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
+        SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 'features': {
-                    votes : [],
-                    chat: []
+                    votes : [
+
+                    ],
+                    chat: [
+                        
+                    ]
                 }
             }
         });
