@@ -18,7 +18,6 @@ module.exports = function(io)
 
         // Activate when client sends a session event
         client.on('session', args => {
-
             let currentSession;
 
             switch(args.event)
@@ -129,7 +128,12 @@ module.exports = function(io)
                     break;
 
                 case 'leave':
-                    currentSession = this.activeSessions.find(session => session.key == args.key);
+                    console.log("ACTIVE SESSION"+this.activeSessions);
+                    currentSession = this.activeSessions.find(session => 
+                        {
+                            return session.key == args.key;
+
+                        });
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
