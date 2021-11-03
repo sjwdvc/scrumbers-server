@@ -183,7 +183,34 @@ module.exports = function(io)
                             currentSession.loadNextState();
                     }
                 break;
-           } 
+            }
+        });
+        // get chat related activities
+        client.on('chat', args => {
+            // get the current session
+            let currentSession = this.activeSessions.find(session => {
+                return session.key == args.key;
+            });
+
+            if (currentSession == undefined || currentSession == null) {
+                return;
+            }
+
+            switch (args.event) {
+                case 'send':
+                    console.log("send: ", args);
+
+                    // send message to clients
+                    currentSession.broadcast('chat', {
+                        event: 'receive',
+                        key: args.key,
+                        sender: args.sender,
+                        message: args.message
+                    });
+
+                    break;
+
+            }
         });
     });
 }
