@@ -107,7 +107,7 @@ module.exports = function(io)
                         client.name     = args.name;
                         client.email    = args.email;
                         User.find({ email: args.email }).then(data => {
-                            client.uid = Types.ObjectId(data[0]._id);
+                            client.uid = Types.ObjectId(data[0]._id)._id;
                         });
 
                         // Check if you are already pushed to the clients array when creating the room.
@@ -185,18 +185,28 @@ module.exports = function(io)
                         currentSession.submits.push(args.email);
 
                         // Push the vote and chat message to the database
-                        SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
+                        SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer-1]._id}, {
                             $push: {
                                 'features.$.votes': {
                                     user: client.uid,
-                                    value: args.number
+                                    value: parseInt(args.number)
                                 },
                                 'features.$.chat': {
                                     user: client.uid,
                                     value: args.desc
                                 }
                             }
-                        });
+                        },
+                        {
+                            arrayFilters: [{ 'i': currentSession.featurePointer }],
+                            new: true
+                        }).then(res =>
+                        {
+                            console.log(res);
+                            currentSession.broadcast('submit', {
+                                user: client.name
+                            });
+                        }).catch(err => console.error(err));
 
                         // Check if all clients have submitted a value
                         if (currentSession.submits.length == currentSession.clients.length)
@@ -368,28 +378,13 @@ class Session
         // Add a new empty feature object to the database
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
-                'features': {
-                    votes : [
-
-                    ],
-                    chat: [
-                        
-                    ]
+                features: {
+                    votes : [],
+                    chat: []
                 }
             }
-        });
-
-        let feature = this.backlog.cards[this.featurePointer];
-        return { name: feature.name, desc: feature.desc, checklists: feature.checklists }
-    }
-
-    /**
-     * Selects relevant feature data to return to the client
-     * @returns {Object}
-     */
-    featureData()
-    {
-        let feature = this.backlog.cards[this.featurePointer];
-        return { name: feature.name, desc: feature.desc, checklists: feature.checklists }
+        },
+        { new: true }).then(res => this.dbData = res).catch(err => console.error(err));
+        return this.backlog.cards[this.featurePointer++];
     }
 }
