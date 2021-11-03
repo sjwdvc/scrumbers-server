@@ -4,6 +4,10 @@ const User          = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const { TrelloApi, Board, List, Card } = require('./trelloApi');
 
+function generateID(){
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
 module.exports = function(io)
 {
     /**
@@ -38,8 +42,8 @@ module.exports = function(io)
                             client.name     = args.name;
                             client.email    = args.email;
 
-                            // Create session with key
-                            let key = Math.ceil(Math.random() * 34234237233242);
+                            // Create session a key
+                            let key = generateID();
 
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
@@ -193,8 +197,6 @@ module.exports = function(io)
                                 }
                             }
                         });
-
-                        console.log(currentSession.submits.length, currentSession.clients.length)
 
                         // Check if all clients have submitted a value
                         if (currentSession.submits.length == currentSession.clients.length)
