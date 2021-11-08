@@ -33,11 +33,11 @@ module.exports = function(io)
                     let match = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0];
                     if (match)
                     {
-                        console.log("creating...");
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
 
                         trello.getBoard(match[1]).then(board => {
+
                             // Set each client credentials
                             client.name     = args.name;
                             client.email    = args.email;
@@ -65,18 +65,26 @@ module.exports = function(io)
 
                                 // Read all features from the backlog
                                 console.log("getting backlog");
-                                trello.getListByName(board.id, "backlog").then(backlog => {
-                                    session.backlog = backlog;
-                                    console.log("getting cards");
-                                    trello.getCardsFromList(session.backlog.id).then(cards => {
-                                        session.backlog.cards = cards;
-                                        console.log(session.backlog);
-                                        // Return the session key to front end
-                                        client.emit('createRoom', {key: key});
-                                    }).catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
-                                }).catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
+
+                                trello.getListByName(board.id, "backlog")
+                                    .then(backlog => {
+                                        session.backlog = backlog;
+                                        console.log("getting cards");
+
+                                        trello.getCardsFromList(session.backlog.id)
+                                            .then(cards => {
+                                                session.backlog.cards = cards;
+                                                //console.log(session.backlog);
+
+                                                // Return the session key to front end
+                                                client.emit('createRoom', {key: key});
+                                            })
+                                            .catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
+                                    })
+                                    .catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
                             });
-                        }).catch(err => {
+                        })
+                        .catch(err => {
                             client.emit('urlError', {error: "Invalid Trello board"});
                         });
                     }
@@ -125,6 +133,10 @@ module.exports = function(io)
                         let users = [];
                         currentSession.clients.forEach(client => users.push(client.name));
                         currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started});
+
+                        let featureData = currentSession.backlog.cards[currentSession.featurePointer]
+                        currentSession.state !== 'waiting' ? client.emit('featureData', {name: featureData.name, desc: featureData.desc, checklists: featureData.checklists}) : '' ;
+
                     } else client.emit('undefinedSession');
                 break;
 
@@ -155,7 +167,7 @@ module.exports = function(io)
            switch (args.event)
            {
                 case 'submit':
-                    console.log("submit: ", args);
+                    //console.log("submit: ", args);
                     // Check if during this state of the game we should be able to submit
                     if (currentSession.state != 'round1' && currentSession.state != 'round2') 
                     {
@@ -212,7 +224,7 @@ module.exports = function(io)
 
             switch (args.event) {
                 case 'send':
-                    console.log("send: ", args);
+                    //console.log("send: ", args);
 
                     // send message to clients
                     currentSession.broadcast('chat', {
@@ -309,17 +321,14 @@ class Session
      */
     loadNextState()
     {
-        console.log('Loading next state');
         switch(this.state)
         {
             case 'waiting':
-                //this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
-                // OLD:
                 let feature = this.nextFeature();
-                this.broadcast('nextFeature', { feature: { name: feature.name, desc: feature.desc } });
-                // END
+                this.broadcast('featureData', { name: feature.name, desc: feature.desc, checklists: feature.checklists });
                 this.state = 'round1';
             break;
+
             case 'round1':
                 SessionObject.findById(this.dbData._id).then(res => {
                     this.dbData = res;   
@@ -327,13 +336,15 @@ class Session
                 });
                 this.state = 'chat';
             break;
+
             case 'chat':
                 // TODO:
-                // Give the previous choice of the client back so the client can see thier previous choice and change or hold it
+                // Give the previous choice of the client back so the client can see their previous choice and change or hold it
                 // So use foreach instead of broadcast
                 this.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
                 this.state = 'round2';
             break;
+
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
