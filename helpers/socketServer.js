@@ -132,7 +132,8 @@ module.exports = function(io)
                         currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started});
 
                         let featureData = currentSession.backlog.cards[currentSession.featurePointer]
-                        currentSession.state !== 'waiting' ? client.emit('featureData', {name: featureData.name, desc: featureData.desc, checklists: featureData.checklists}) : '' ;
+
+                        currentSession.state !== 'waiting' ? client.emit('load', { toLoad: currentSession.state, data : currentSession.featureData() }) : '' ;
 
                     } else client.emit('undefinedSession');
                 break;
@@ -152,6 +153,7 @@ module.exports = function(io)
                     break;
             }
         });
+
         client.on('feature', args => {
             // Get the session we want to change the feature for
             /**
@@ -164,7 +166,7 @@ module.exports = function(io)
            switch (args.event)
            {
                 case 'submit':
-                    //console.log("submit: ", args);
+                    console.log("submit: ", args);
                     // Check if during this state of the game we should be able to submit
                     if (currentSession.state != 'round1' && currentSession.state != 'round2') 
                     {
@@ -177,6 +179,7 @@ module.exports = function(io)
                     {
                         // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
+
                         // Push the vote and chat message to the database
                         SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
                             $push: {
@@ -191,6 +194,8 @@ module.exports = function(io)
                             }
                         });
 
+                        console.log(currentSession.submits.length, currentSession.clients.length)
+
                         // Check if all clients have submitted a value
                         if (currentSession.submits.length == currentSession.clients.length)
                             currentSession.loadNextState();
@@ -198,12 +203,11 @@ module.exports = function(io)
                 break;
             }
         });
+
         // get chat related activities
         client.on('chat', args => {
             // get the current session
-            let currentSession = this.activeSessions.find(session => {
-                return session.key == args.key;
-            });
+            let currentSession = this.activeSessions.find(session => session.key == args.key);
 
             if (currentSession == undefined || currentSession == null) {
                 return;
@@ -299,7 +303,7 @@ class Session
     start()
     {
         this.started = true;
-        this.broadcast('started'); // Remove?
+        this.broadcast('started');
         this.loadNextState();
     }
     
@@ -308,41 +312,54 @@ class Session
      */
     loadNextState()
     {
+
+        let feature = this.featureData();
+
         switch(this.state)
         {
             case 'waiting':
-                let feature = this.nextFeature();
-                this.broadcast('featureData', { name: feature.name, desc: feature.desc, checklists: feature.checklists });
                 this.state = 'round1';
+                this.broadcast('load', { toLoad: this.state, data: this.featureData() });
+                console.log('waiting > round 1')
             break;
 
             case 'round1':
                 // TODO:
                 // Give initial chat data to the clients
-                this.broadcast('load', { toLoad: 'chat', data: { } });
-                this.state = 'chat';
-            break;
-
-            case 'chat':
-                // TODO:
-                // Give the previous choice of the client back so the client can see their previous choice and change or hold it
-                // So use foreach instead of broadcast
-                this.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
                 this.state = 'round2';
+
+                // Empty the submits for round 2
+                this.submits = [];
+
+                this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: feature });
+                console.log('round 1 > round 2');
+
             break;
 
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
-                this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                this.state = 'round1';
+
+                // Increase the feature pointer to grab new data
+                this.featurePointer++;
+                console.log('increasing feature pointer')
+
+                // Empty the submits for round 1
+                this.submits = [];
+
+                this.broadcast('load', { toLoad: this.state, data: this.nextFeature() });
+
+                console.log('round 2 > round 1');
             break;
         }
     }
 
     featurePointer = 0;
+
     /**
      * Gets the next feature from the backlog
-     * @returns {Card}
+     * @returns {Object}
      */
     nextFeature()
     {
@@ -359,6 +376,18 @@ class Session
                 }
             }
         });
-        return this.backlog.cards[this.featurePointer++];
+
+        let feature = this.backlog.cards[this.featurePointer];
+        return { name: feature.name, desc: feature.desc, checklists: feature.checklists }
+    }
+
+    /**
+     * Selects relevant feature data to return to the client
+     * @returns {Object}
+     */
+    featureData()
+    {
+        let feature = this.backlog.cards[this.featurePointer];
+        return { name: feature.name, desc: feature.desc, checklists: feature.checklists }
     }
 }
