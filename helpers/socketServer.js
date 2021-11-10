@@ -225,6 +225,28 @@ module.exports = function(io)
                         message: args.message
                     });
 
+                    if (currentSession?.dbData?.features[currentSession?.featurePointer - 1]?._id != undefined) {
+
+                        let push = {
+                            'features.$.chat': {
+                                user: client.uid,
+                                value: args.message
+                            }
+                        };
+                        try {
+                            SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer - 1]._id }, {
+                                $push: push
+                            });
+                            console.log('pushed message: ' + JSON.stringify(push));
+                        } catch (error) {
+                            console.log('failed to save message: ' + error);
+                        }
+                    }
+
+                    break;
+
+                case 'getAll':
+
                     break;
 
             }
