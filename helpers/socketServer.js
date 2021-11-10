@@ -259,7 +259,7 @@ class Session
     start()
     {
         this.started = true;
-        this.broadcast('started'); // Remove?
+        this.broadcast('started', {featuresLength: this.backlog.cards.length}); // Remove?
         this.loadNextState();
     }
     
