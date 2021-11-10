@@ -4,10 +4,6 @@ const User          = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const { TrelloApi, Board, List, Card } = require('./trelloApi');
 
-function generateID(){
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
 module.exports = function(io)
 {
     /**
@@ -42,8 +38,9 @@ module.exports = function(io)
                             client.name     = args.name;
                             client.email    = args.email;
 
-                            // Create session a key
-                            let key = generateID();
+                            // Create session with key
+                            let key = Math.ceil(Math.random() * 34234237233242);
+
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
                                 // Create a session in teh database
@@ -106,7 +103,7 @@ module.exports = function(io)
                         client.name     = args.name;
                         client.email    = args.email;
                         User.find({ email: args.email }).then(data => {
-                            client.uid = Types.ObjectId(data[0]._id)._id;
+                            client.uid = Types.ObjectId(data[0]._id);
                         });
 
                         // Check if you are already pushed to the clients array when creating the room.
@@ -184,28 +181,18 @@ module.exports = function(io)
                         currentSession.submits.push(args.email);
 
                         // Push the vote and chat message to the database
-                        SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer-1]._id}, {
+                        SessionObject.findByIdAndUpdate(currentSession.dbData._id, {
                             $push: {
                                 'features.$.votes': {
                                     user: client.uid,
-                                    value: parseInt(args.number)
+                                    value: args.number
                                 },
                                 'features.$.chat': {
                                     user: client.uid,
                                     value: args.desc
                                 }
                             }
-                        }, 
-                        {
-                            arrayFilters: [{ 'i': currentSession.featurePointer }],
-                            new: true
-                        }).then(res => 
-                        {
-                            console.log(res);
-                            currentSession.broadcast('submit', {
-                                user: client.name
-                            });
-                        }).catch(err => console.error(err));
+                        });
 
                         console.log(currentSession.submits.length, currentSession.clients.length)
 
@@ -337,18 +324,8 @@ class Session
             break;
 
             case 'round1':
-                SessionObject.findById(this.dbData._id).then(res => {
-                    this.dbData = res;   
-                    this.broadcast('load', { toLoad: 'chat', data: { messages: this.dbData.features[this.featurePointer-1].chat } });
-                });
-                this.state = 'chat';
-            break;
-
-            case 'chat':
                 // TODO:
-                // Give the previous choice of the client back so the client can see their previous choice and change or hold it
-                // So use foreach instead of broadcast
-                this.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
+                // Give initial chat data to the clients
                 this.state = 'round2';
 
                 // Empty the submits for round 2
@@ -389,9 +366,13 @@ class Session
         // Add a new empty feature object to the database
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
-                features: {
-                    votes : [],
-                    chat: []
+                'features': {
+                    votes : [
+
+                    ],
+                    chat: [
+                        
+                    ]
                 }
             }
         });
