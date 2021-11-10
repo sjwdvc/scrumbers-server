@@ -7,18 +7,21 @@ const vote = new Schema(
         value : Number
     }
 );
+
 const message = new Schema(
     {
         user : ObjectId,
         value : String
     }
 );
+
 const feature = new Schema(
     {
         votes : [vote],
         chat: [message]
     }
 );
+
 const sessionSchema = new Schema(
     {
         admin : {

@@ -33,11 +33,11 @@ module.exports = function(io)
                     let match = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0];
                     if (match)
                     {
-                        console.log("creating...");
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
 
                         trello.getBoard(match[1]).then(board => {
+
                             // Set each client credentials
                             client.name     = args.name;
                             client.email    = args.email;
@@ -65,18 +65,26 @@ module.exports = function(io)
 
                                 // Read all features from the backlog
                                 console.log("getting backlog");
-                                trello.getListByName(board.id, "backlog").then(backlog => {
-                                    session.backlog = backlog;
-                                    console.log("getting cards");
-                                    trello.getCardsFromList(session.backlog.id).then(cards => {
-                                        session.backlog.cards = cards;
-                                        console.log(session.backlog);
-                                        // Return the session key to front end
-                                        client.emit('createRoom', {key: key});
-                                    }).catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
-                                }).catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
+
+                                trello.getListByName(board.id, "backlog")
+                                    .then(backlog => {
+                                        session.backlog = backlog;
+                                        console.log("getting cards");
+
+                                        trello.getCardsFromList(session.backlog.id)
+                                            .then(cards => {
+                                                session.backlog.cards = cards;
+                                                //console.log(session.backlog);
+
+                                                // Return the session key to front end
+                                                client.emit('createRoom', {key: key});
+                                            })
+                                            .catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
+                                    })
+                                    .catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
                             });
-                        }).catch(err => {
+                        })
+                        .catch(err => {
                             client.emit('urlError', {error: "Invalid Trello board"});
                         });
                     }
@@ -125,6 +133,11 @@ module.exports = function(io)
                         let users = [];
                         currentSession.clients.forEach(client => users.push(client.name));
                         currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started});
+
+                        let featureData = currentSession.backlog.cards[currentSession.featurePointer]
+
+                        currentSession.state !== 'waiting' ? client.emit('load', { toLoad: currentSession.state, data : currentSession.featureData() }) : '' ;
+
                     } else client.emit('undefinedSession');
                 break;
 
@@ -143,6 +156,7 @@ module.exports = function(io)
                     break;
             }
         });
+
         client.on('feature', args => {
             // Get the session we want to change the feature for
             /**
@@ -168,6 +182,7 @@ module.exports = function(io)
                     {
                         // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
+
                         // Push the vote and chat message to the database
                         SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer-1]._id}, {
                             $push: {
@@ -197,7 +212,33 @@ module.exports = function(io)
                             currentSession.loadNextState();
                     }
                 break;
-           } 
+            }
+        });
+
+        // get chat related activities
+        client.on('chat', args => {
+            // get the current session
+            let currentSession = this.activeSessions.find(session => session.key == args.key);
+
+            if (currentSession == undefined || currentSession == null) {
+                return;
+            }
+
+            switch (args.event) {
+                case 'send':
+                    //console.log("send: ", args);
+
+                    // send message to clients
+                    currentSession.broadcast('chat', {
+                        event: 'receive',
+                        key: args.key,
+                        sender: args.sender,
+                        message: args.message
+                    });
+
+                    break;
+
+            }
         });
     });
 }
@@ -273,7 +314,7 @@ class Session
     start()
     {
         this.started = true;
-        this.broadcast('started'); // Remove?
+        this.broadcast('started');
         this.loadNextState();
     }
     
@@ -282,17 +323,17 @@ class Session
      */
     loadNextState()
     {
-        console.log('Loading next state');
+
+        let feature = this.featureData();
+
         switch(this.state)
         {
             case 'waiting':
-                //this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
-                // OLD:
-                let feature = this.nextFeature();
-                this.broadcast('nextFeature', { feature: { name: feature.name, desc: feature.desc } });
-                // END
                 this.state = 'round1';
+                this.broadcast('load', { toLoad: this.state, data: this.featureData() });
+                console.log('waiting > round 1')
             break;
+
             case 'round1':
                 SessionObject.findById(this.dbData._id).then(res => {
                     this.dbData = res;   
@@ -306,19 +347,39 @@ class Session
                 // So use foreach instead of broadcast
                 this.broadcast('load', { toLoad: 'game', data: { feature: this.backlog.cards[this.featurePointer] } });
                 this.state = 'round2';
+
+                // Empty the submits for round 2
+                this.submits = [];
+
+                this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: feature });
+                console.log('round 1 > round 2');
+
             break;
+
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
-                this.broadcast('load', { toLoad: 'game', data: { feature: this.nextFeature() } });
+                this.state = 'round1';
+
+                // Increase the feature pointer to grab new data
+                this.featurePointer++;
+                console.log('increasing feature pointer')
+
+                // Empty the submits for round 1
+                this.submits = [];
+
+                this.broadcast('load', { toLoad: this.state, data: this.nextFeature() });
+
+                console.log('round 2 > round 1');
             break;
         }
     }
 
     featurePointer = 0;
+
     /**
      * Gets the next feature from the backlog
-     * @returns {Card}
+     * @returns {Object}
      */
     nextFeature()
     {
