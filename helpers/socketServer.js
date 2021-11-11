@@ -4,9 +4,7 @@ const User          = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const { TrelloApi, Board, List, Card } = require('./trelloApi');
 
-function generateID(){
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
+let generateID = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 module.exports = function(io)
 {
@@ -19,6 +17,9 @@ module.exports = function(io)
 
     // Listen for connections
     io.on('connection', client => {
+
+        // TODO
+        // Add client on disconnect
 
         // Activate when client sends a session event
         client.on('session', args => {
@@ -47,6 +48,7 @@ module.exports = function(io)
 
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
+
                                 // Create a session in teh database
                                 SessionObject.create(
                                     {
@@ -55,6 +57,7 @@ module.exports = function(io)
                                     }
                                 ).then(data => {
                                     session.dbData = data;
+
                                 }).catch((err) => console.error(err));
 
                                 // Give our board to the session
@@ -64,18 +67,13 @@ module.exports = function(io)
                                 // Push to active sessions
                                 this.activeSessions.push(session);
 
-                                // Read all features from the backlog
-                                console.log("getting backlog");
-
                                 trello.getListByName(board.id, "backlog")
                                     .then(backlog => {
                                         session.backlog = backlog;
-                                        console.log("getting cards");
 
                                         trello.getCardsFromList(session.backlog.id)
                                             .then(cards => {
                                                 session.backlog.cards = cards;
-                                                //console.log(session.backlog);
 
                                                 // Return the session key to front end
                                                 client.emit('createRoom', {key: key});
@@ -95,9 +93,7 @@ module.exports = function(io)
 
                 case 'join':
                     // Check if there is a session with the key the client is using to join
-                    currentSession = this.activeSessions.find(session => {
-                        return session.key == args.key;
-                    });
+                    currentSession = this.activeSessions.find(session => session.key == args.key);
 
                     // If a session is found, continue
                     if (currentSession !== undefined)
@@ -106,6 +102,8 @@ module.exports = function(io)
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
                         client.email    = args.email;
+                        client.status   = currentSession.submits.includes(args.email) ? 'ready' : 'waiting' || 'waiting'
+
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
                         });
@@ -113,9 +111,7 @@ module.exports = function(io)
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
                         if(!currentSession.clients.some(currentClient => currentClient.email === args.email))
-                        {
                             currentSession.clients.push(client);
-                        }
 
                         // If you're the admin and you're trying to reconnect with a different client. replace the old clients and the admin socket
                         else if(currentSession.admin.email === client.email)
@@ -132,12 +128,19 @@ module.exports = function(io)
 
                         // Create a overview of all users in the current session and return to the client
                         let users = [];
-                        currentSession.clients.forEach(client => users.push(client.name));
-                        currentSession.broadcast('joined', {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started});
+                        currentSession.clients.forEach(client => users.push({name : client.name, status: client.status}));
+                        currentSession.broadcast('joined', {data : {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started}});
 
-                        let featureData = currentSession.backlog.cards[currentSession.featurePointer]
+                        switch(currentSession.state)
+                        {
+                            case 'round2':
+                                client.emit('load', { toLoad: currentSession.state, data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                                break;
 
-                        currentSession.state !== 'waiting' ? client.emit('load', { toLoad: currentSession.state, data : currentSession.featureData() }) : '' ;
+                            default:
+                                client.emit('load', { toLoad: currentSession.state, data: currentSession.featureData() });
+                                break;
+                        }
 
                     } else client.emit('undefinedSession');
                 break;
@@ -152,25 +155,20 @@ module.exports = function(io)
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
                     let users = [];
-                    currentSession.clients.forEach(client => users.push(client.name));
-                    currentSession.broadcast('leftSession', {userLeft: client.name, users: users});
+                    currentSession.clients.forEach(client => users.push({ name: client.name, status: client.status }));
+                    currentSession.broadcast('leftSession', {data : {userLeft: client.name, users: users}});
                     break;
             }
         });
 
         client.on('feature', args => {
-            // Get the session we want to change the feature for
-            /**
-             * @type {Session}
-             */
-            let currentSession = this.activeSessions.find(session => {
-                return session.key == args.key;
-            });
+
+            let currentSession = this.activeSessions.find(session => session.key == args.key);
             
-           switch (args.event)
-           {
+            switch (args.event)
+            {
                 case 'submit':
-                    console.log("submit: ", args);
+
                     // Check if during this state of the game we should be able to submit
                     if (currentSession.state != 'round1' && currentSession.state != 'round2') 
                     {
@@ -185,32 +183,35 @@ module.exports = function(io)
                         currentSession.submits.push(args.email);
 
                         // Push the vote and chat message to the database
-                        SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer-1]._id}, {
-                            $push: {
+                        SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
+                            $push:
+                            {
                                 'features.$.votes': {
                                     user: client.uid,
-                                    value: parseInt(args.number)
+                                    value: parseInt(args['number']),
+                                    sender: client.name
                                 },
                                 'features.$.chat': {
                                     user: client.uid,
-                                    value: args.desc
+                                    value: args.desc,
+                                    sender: client.name
                                 }
                             }
                         },
                         {
                             arrayFilters: [{ 'i': currentSession.featurePointer }],
                             new: true
-                        }).then(res =>
-                        {
-                            console.log(res);
-                            currentSession.broadcast('submit', {
-                                user: client.name
-                            });
-                        }).catch(err => console.error(err));
+                        }).then(() => {
 
-                        // Check if all clients have submitted a value
-                        if (currentSession.submits.length == currentSession.clients.length)
-                            currentSession.loadNextState();
+                            currentSession.broadcast('submit', {
+                                user: client.name,
+                            });
+
+                            // Check if all clients have submitted a value
+                            if (currentSession.submits.length == currentSession.clients.length)
+                                currentSession.loadNextState();
+
+                        }).catch(err => console.error(err));
                     }
                 break;
             }
@@ -221,14 +222,12 @@ module.exports = function(io)
             // get the current session
             let currentSession = this.activeSessions.find(session => session.key == args.key);
 
-            if (currentSession == undefined || currentSession == null) {
+            if (currentSession === undefined || currentSession == null) {
                 return;
             }
 
             switch (args.event) {
                 case 'send':
-                    //console.log("send: ", args);
-
                     // send message to clients
                     currentSession.broadcast('chat', {
                         event: 'receive',
@@ -237,8 +236,22 @@ module.exports = function(io)
                         message: args.message
                     });
 
-                    break;
+                    SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
+                        $push:
+                            {
+                                'features.$.chat': {
+                                    user: client.uid,
+                                    value: args.message,
+                                    sender: args.sender
+                                }
+                            }
+                    },
+                    {
+                        arrayFilters: [{ 'i': currentSession.featurePointer }],
+                        new: true
+                    }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
 
+                    break;
             }
         });
     });
@@ -251,6 +264,12 @@ class Session
      * @type {'waiting'|'round1'|'chat'|'round2'}
      */
     state = 'waiting';
+
+    /**
+     * The index of the current feature in a session
+     * @type {number}
+     */
+    featurePointer = 0;
 
     /**
      * A array of all clients that submitted 
@@ -315,7 +334,7 @@ class Session
     start()
     {
         this.started = true;
-        this.broadcast('started');
+        this.broadcast('started', {featuresLength: this.backlog.cards.length});
         this.loadNextState();
     }
     
@@ -324,58 +343,95 @@ class Session
      */
     loadNextState()
     {
-
-        let feature = this.featureData();
-
         switch(this.state)
         {
             case 'waiting':
                 this.state = 'round1';
+
+                this.createFeatureObject()
+
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
-                console.log('waiting > round 1')
             break;
 
             case 'round1':
-                // TODO:
-                // Give initial chat data to the clients
                 this.state = 'round2';
 
                 // Empty the submits for round 2
                 this.submits = [];
 
-                this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: feature });
-                console.log('round 1 > round 2');
+                this.updateDBData()
+                    .then(response => {
+                        this.dbData = response[0]
 
+                        console.log(this.dbData)
+
+                        this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: this.dbData.features[this.featurePointer] });
+                    })
             break;
 
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
+
                 this.state = 'round1';
 
                 // Increase the feature pointer to grab new data
                 this.featurePointer++;
-                console.log('increasing feature pointer')
 
                 // Empty the submits for round 1
                 this.submits = [];
 
-                this.broadcast('load', { toLoad: this.state, data: this.nextFeature() });
+                // Reset everyone's status to waiting
+                this.clients.forEach(client => client.status = 'waiting')
 
-                console.log('round 2 > round 1');
+                this.createFeatureObject()
+                this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
         }
     }
 
-    featurePointer = 0;
+    /**
+     * Return the current feature data
+     * @returns {{checklists, name, featurePointer: number, desc, featuresLength: number}}
+     */
+    featureData()
+    {
+        let feature = this.backlog.cards[this.featurePointer];
+
+        let users = []
+        this.clients.forEach(client => {
+            users.push({
+                name    : client.name,
+                status  : client.status
+            })
+        })
+
+        return {
+            // Name of the feature
+            name            : feature.name,
+
+            // Description of the feature
+            desc            : feature.desc,
+
+            // Checklists of the feature
+            checklists      : feature.checklists,
+
+            // The current index of the cards
+            featurePointer  : this.featurePointer + 1,
+
+            // The total of the cards amount
+            featuresLength  : this.backlog.cards.length,
+
+            // An object containing the users and their current status, created above
+            users           : users
+        }
+    }
 
     /**
-     * Gets the next feature from the backlog
-     * @returns {Object}
+     * Pushes a new feature object to store chats and votes into the session DB document
      */
-    nextFeature()
+    createFeatureObject()
     {
-        // Add a new empty feature object to the database
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
@@ -383,8 +439,16 @@ class Session
                     chat: []
                 }
             }
-        },
-        { new: true }).then(res => this.dbData = res).catch(err => console.error(err));
-        return this.backlog.cards[this.featurePointer++];
+        }, { new: true })
+             .then(res => this.dbData = res)
+             .catch(err => console.error(err));
+    }
+
+    /**
+     * Updates the database object used in the session
+     */
+    updateDBData()
+    {
+        return SessionObject.find({_id: this.dbData._id})
     }
 }

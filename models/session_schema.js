@@ -11,7 +11,8 @@ const vote = new Schema(
 const message = new Schema(
     {
         user : ObjectId,
-        value : String
+        value : String,
+        sender: String
     }
 );
 
