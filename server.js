@@ -28,7 +28,7 @@ app.use(es({
     }
 }));
 
-app.use(cors({origin: ['https://scrumbers-client.herokuapp.com', 'https://localhost:8081'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
+app.use(cors({origin: ['https://scrumbers-client.herokuapp.com', 'https://localhost:8080', 'https://localhost:8081'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization']}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'html');
@@ -47,7 +47,7 @@ app.use((req,res, next) => {
 
         default:
             jwt.verify(req.headers['authorization'], process.env.JWT_TOKEN_SECRET, (err, decoded) => {
-                decoded === undefined ? res.status(200).send({error: err, message: 'invalid token'}) : next()
+                decoded === undefined ? res.status(200).send({error: err, message: 'invalid token', secret: process.env.JWT_TOKEN_SECRET, token: req.headers['authorization']}) : next()
             });
     }
 })
@@ -55,18 +55,20 @@ app.use((req,res, next) => {
 // Defining route middleware
 app.use('/api', require('./routes/api'));
 
-// Local Config (https) ---------------------------------------------------------------------------------------------------------------------------------------
-// const https     = require('https');
-// const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
-// const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-// require('./helpers/socketServer')(io);
-// server.listen(port)
-
-// Heroku config ---------------------------------------------------------------------------------------------------------------------------------------
-const server    = app.listen(port)
-const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
-require('./helpers/socketServer')(io);
+if(process.env.PRODUCTION_CONFIG)
+{
+    const server    = app.listen(port)
+    const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+    require('./helpers/socketServer')(io);
+}
+else
+{
+    const https     = require('https');
+    const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
+    const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
+    require('./helpers/socketServer')(io);
+    server.listen(port)
+}
 
 console.log(`Listening On https://localhost:${port}/api`);
-
 module.exports = app;

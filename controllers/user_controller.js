@@ -25,7 +25,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 8 karakters bevatten',
+                                           error : 'Password requires at least 8 characters',
                                            field : 'password'
                                        }
                                    )
@@ -36,7 +36,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 1 hoofdletter bevatten',
+                                           error : 'Password requires at least 1 capital letter',
                                            field : 'password'
                                        }
                                    )
@@ -48,7 +48,7 @@ const register = (req, res) => {
                                 res.json
                                    (
                                        {
-                                           error : 'Wachtwoord moet tenminste 1 cijfer bevatten',
+                                           error : 'Password requires at least 1 number',
                                            field : 'password',
                                        }
                                    )
@@ -58,7 +58,7 @@ const register = (req, res) => {
                                 if (Object.values(req.body).some(value => harms.test(value))) {
                                     res.json
                                        ({
-                                            error : 'Je gebruikt karakters die niet zijn toegestaan',
+                                            error : 'Some characters are not allowed',
                                             field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
                                         })
                                 } else
@@ -74,11 +74,11 @@ const register = (req, res) => {
                                                   .then(data => {
 
                                                       // Set session variables
-                                                      req.session.token = generateToken([data])
-                                                      req.session.name  = req.body.name
-                                                      req.session.email = req.body.email
+                                                      req.session.token = generateToken([data]);
+                                                      req.session.name  = req.body.name;
+                                                      req.session.email = req.body.email;
 
-                                                      res.status(200).json({})
+                                                      res.status(200).json({});
                                                   })
                                                   .catch((err) => res.status(500).json({ error: err.message }));
                                           })
@@ -91,7 +91,7 @@ const register = (req, res) => {
                             res.json
                                (
                                    {
-                                       error : 'Email is al in gebruik',
+                                       error : 'Email is already taken',
                                        field : 'email'
                                    }
                                )
@@ -106,7 +106,7 @@ const register = (req, res) => {
                 res.json
                    (
                        {
-                           error : 'Gebruikersnaam is al in gebruik',
+                           error : 'Username is already taken',
                            field : 'name'
                        }
                    )
@@ -165,19 +165,16 @@ const deleteData = (req, res) => {
 };
 
 const userData = (req, res) => {
-    console.log('reading user data')
 
     // Get user data from database
     User.find({email: req.session.email}) 
     .then((data) => {
-        console.log(data)
         res.status(200).json({
             name:       data[0].name || '',
             email:      data[0].email || '',
             age:        data[0].age || 0,
             function:   data[0].function || ''
                              });
-        console.log(process.env.JWT_TOKEN_SECRET)
     })
 };
 
@@ -188,7 +185,7 @@ const updateUser = (req, res) => {
         if (Object.values(req.body).some(value => harms.test(value))) {
             res.json
                 ({
-                    error : 'Je gebruikt karakters die niet zijn toegestaan',
+                    error : 'Some characters are not allowed',
                 })
         } else{
             // Update user information
@@ -196,12 +193,17 @@ const updateUser = (req, res) => {
             ({
                 error : "" 
             })
+            console.log("Body name: "+ req.body.name);
+            console.log("Session name: "+ req.session.name);
+            req.session.name = req.body.name;
+            console.log("NEW Session name: "+ req.session.name);
+
             User.updateOne({email: req.session.email}, { name: req.body.name , age : req.body.age, function : req.body.function}, { upsert: true }, (err, res) => console.log(err, res))
         }
     } else{
         res.json
             ({
-                error : 'Vul alle velden in' 
+                error : 'Please fill out all the fields'
             })
     }
     
@@ -218,7 +220,7 @@ const login = (req, res) => {
         .then(data => {
             if (data.length === 0) res.json(
                 {
-                    error: "Gebruiker niet gevonden",
+                    error: "User not found",
                     field: "email"
                 })
             else
@@ -253,7 +255,7 @@ const login = (req, res) => {
                           {
                               res.json(
                                   {
-                                      error : 'Onjuist wachtwoord',
+                                      error : 'Invalid password',
                                       field : 'password'
                                   }
                               );
@@ -270,8 +272,7 @@ const login = (req, res) => {
 }
 
 const generateToken = data => {
-    // // Check if we have a jwt server key file
-    // // If not create a new server key and put it in .jwtkey
+    // Secret is now stored in heroku config
     if (process.env.JWT_TOKEN_SECRET === "")
         process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
