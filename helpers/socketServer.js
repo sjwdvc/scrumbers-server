@@ -192,7 +192,7 @@ module.exports = function(io)
                             {
                                 'features.$.votes': {
                                     user: client.uid,
-                                    value: parseInt(args['number']),
+                                    value: args['number'],
                                     sender: client.name
                                 },
                                 'features.$.chat': {
@@ -232,20 +232,13 @@ module.exports = function(io)
 
             switch (args.event) {
                 case 'send':
-
-
                     SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
                         $push:
                             {
-                                'features.$.votes': {
-                                    user: client.uid,
-                                    value: args['number'],
-                                    sender: client.name
-                                },
                                 'features.$.chat': {
                                     user: client.uid,
-                                    value: args.desc,
-                                    sender: client.name
+                                    value: args.message,
+                                    sender: args.sender
                                 }
                             }
                     },
@@ -253,6 +246,11 @@ module.exports = function(io)
                         arrayFilters: [{ 'i': currentSession.featurePointer }],
                         new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
+
+
+                    console.log('chat')
+
+                    console.log(args)
 
                     // send message to clients
                     currentSession.broadcast('chat', {
