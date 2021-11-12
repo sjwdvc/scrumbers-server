@@ -193,6 +193,11 @@ const updateUser = (req, res) => {
             ({
                 error : "" 
             })
+            console.log("Body name: "+ req.body.name);
+            console.log("Session name: "+ req.session.name);
+            req.session.name = req.body.name;
+            console.log("NEW Session name: "+ req.session.name);
+
             User.updateOne({email: req.session.email}, { name: req.body.name , age : req.body.age, function : req.body.function}, { upsert: true }, (err, res) => console.log(err, res))
         }
     } else{

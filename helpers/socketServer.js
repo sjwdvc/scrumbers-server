@@ -23,7 +23,6 @@ module.exports = function(io)
 
         // Activate when client sends a session event
         client.on('session', args => {
-
             let currentSession;
 
             switch(args.event)
@@ -150,7 +149,12 @@ module.exports = function(io)
                     break;
 
                 case 'leave':
-                    currentSession = this.activeSessions.find(session => session.key == args.key);
+                    console.log("ACTIVE SESSION"+this.activeSessions);
+                    currentSession = this.activeSessions.find(session => 
+                        {
+                            return session.key == args.key;
+
+                        });
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
@@ -228,21 +232,20 @@ module.exports = function(io)
 
             switch (args.event) {
                 case 'send':
-                    // send message to clients
-                    currentSession.broadcast('chat', {
-                        event: 'receive',
-                        key: args.key,
-                        sender: args.sender,
-                        message: args.message
-                    });
+
 
                     SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
                         $push:
                             {
+                                'features.$.votes': {
+                                    user: client.uid,
+                                    value: args['number'],
+                                    sender: client.name
+                                },
                                 'features.$.chat': {
                                     user: client.uid,
-                                    value: args.message,
-                                    sender: args.sender
+                                    value: args.desc,
+                                    sender: client.name
                                 }
                             }
                     },
@@ -250,6 +253,15 @@ module.exports = function(io)
                         arrayFilters: [{ 'i': currentSession.featurePointer }],
                         new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
+
+                    // send message to clients
+                    currentSession.broadcast('chat', {
+                        event: 'receive',
+                        key: args.key,
+                        sender: args.sender,
+                        message: args.message,
+                        vote: args.vote
+                    });
 
                     break;
             }

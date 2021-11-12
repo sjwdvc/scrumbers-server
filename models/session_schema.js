@@ -4,7 +4,8 @@ const ObjectId = require('mongoose').Types.ObjectId;
 const vote = new Schema(
     {
         user : ObjectId,
-        value : Number
+        value : Number,
+        sender: String
     }
 );
 
