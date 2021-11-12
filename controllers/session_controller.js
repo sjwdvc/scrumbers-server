@@ -14,12 +14,11 @@ const check = (req, res) => {
         res.status(200).json({login: false})
     else
     {
-        User.find({email: req.session.email}) 
-        .then((data) => {
-            req.session.name = data[0].name;
-            res.status(200).json({login: true, email: req.session.email, name: data[0].name});
-        })
-
+        User.find({email: req.session.email})
+            .then((data) => {
+                req.session.name = data[0].name;
+                res.status(200).json({login: true, email: req.session.email, name: data[0].name});
+            })
     }
 }
 

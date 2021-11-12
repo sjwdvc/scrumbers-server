@@ -232,21 +232,20 @@ module.exports = function(io)
 
             switch (args.event) {
                 case 'send':
-                    // send message to clients
-                    currentSession.broadcast('chat', {
-                        event: 'receive',
-                        key: args.key,
-                        sender: args.sender,
-                        message: args.message
-                    });
+
 
                     SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
                         $push:
                             {
+                                'features.$.votes': {
+                                    user: client.uid,
+                                    value: args['number'],
+                                    sender: client.name
+                                },
                                 'features.$.chat': {
                                     user: client.uid,
-                                    value: args.message,
-                                    sender: args.sender
+                                    value: args.desc,
+                                    sender: client.name
                                 }
                             }
                     },
@@ -254,6 +253,15 @@ module.exports = function(io)
                         arrayFilters: [{ 'i': currentSession.featurePointer }],
                         new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
+
+                    // send message to clients
+                    currentSession.broadcast('chat', {
+                        event: 'receive',
+                        key: args.key,
+                        sender: args.sender,
+                        message: args.message,
+                        vote: args.vote
+                    });
 
                     break;
             }
