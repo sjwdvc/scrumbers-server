@@ -1,4 +1,5 @@
 const { default: axios } = require("axios");
+
 class TrelloApi
 {
     /**
@@ -13,6 +14,7 @@ class TrelloApi
         this.key     = key;
         this.token   = token;
     }
+
     /**
      * 
      * @param {string} boardID Board id (can be short id)
@@ -32,10 +34,11 @@ class TrelloApi
             });
         });
     }
+
     /**
      * 
      * @param {string} boardID 
-     * @returns {Promise<Array.<{id: string, memberID: string, memberType: string, isUncomfirmed: boolean, isDeactivated: boolean}>>}
+     * @returns {Promise<Array.<{id: string, memberID: string, memberType: string, isUnconfirmed: boolean, isDeactivated: boolean}>>}
      */
     getBoardMembers(boardID)
     {
@@ -51,6 +54,7 @@ class TrelloApi
             });
         });
     }
+
     /**
      * 
      * @param {string} boardID 
@@ -93,6 +97,7 @@ class TrelloApi
             }).catch(err => reject(err));
         });
     }
+
     /**
      * 
      * @param {string} listID 
@@ -100,7 +105,9 @@ class TrelloApi
      */
     getCardsFromList(listID)
     {
-        let url = `${this.baseUrl}/lists/${listID}/cards?key=${this.key}&token=${this.token}`;
+        let url = `${this.baseUrl}/lists/${listID}/cards?key=${this.key}&token=${this.token}&checklists=all`;
+
+
         return new Promise((resolve, reject) => {
             axios({
                 method: 'GET',
@@ -133,6 +140,7 @@ class Board
         this.members = null;
     }
 }
+
 class List
 {
     /**
@@ -151,6 +159,7 @@ class List
         this.isSubscribed = data.subscribed;
     }
 }
+
 class Card
 {
     constructor(data)
@@ -163,6 +172,8 @@ class Card
         this.listID = data.idList;
         this.idMembersVoted = data.idMembersVoted;
         this.idShort = data.idShort;
+        this.checklists = data.checklists;
+        this.checklists.open = false;
         // this.labels = data.idLabels;
         this.name = data.name;
         this.pos = data.pos;
@@ -172,7 +183,6 @@ class Card
         this.badges = data.badges;
         this.isDueComplete = data.dueComplete;
         this.due = data.due;
-        this.checklists = data.idChecklists;
         this.members = data.idMembers;
         this.labels = data.labels;
         this.isSubscribed = data.subscribed;
