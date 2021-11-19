@@ -121,6 +121,26 @@ class TrelloApi
             }).catch(err => reject(err));
         });
     }
+
+    /** 
+     * Update the name/title of the card in Trello 
+     * @param {Card} card 
+     * @param {string} name  
+     */ 
+    updateCardName(card, name) 
+    { 
+        let url = `${this.baseUrl}/cards/${card.id}/?name=${name}&key=${this.key}&token=${this.token}`; 
+        return new Promise((resolve, reject) => { 
+            axios({ 
+                method: 'PUT', 
+                url 
+            }).then(res => {
+                console.log(res); 
+                card.name = name; 
+                resolve(card); 
+            }).catch(err => reject(err)); 
+        }); 
+    }
 }
 
 class Board 

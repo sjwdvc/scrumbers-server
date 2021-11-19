@@ -62,6 +62,9 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
+
+                                // Give our setting to the session
+                                session.settings = args.settings;
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
@@ -318,6 +321,12 @@ class Session
     dbData = null;
 
     /**
+     * Our session settings
+     * @type {{coffeeTimeout: string, gameRule: string}}
+     */
+    settings = null;
+
+    /**
      * Create a new session
      * @param {Socket} admin - The user who created the session
      * @param {number} key - Users can join with this key
@@ -359,7 +368,6 @@ class Session
                 this.state = 'round1';
 
                 this.createFeatureObject()
-
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
 
@@ -382,6 +390,20 @@ class Session
             case 'round2':
                 // TODO:
                 // Add the client who 'won' the game to the feature card
+
+                // Add the final value to the feature card
+                console.log(this.dbData.features[this.featurePointer].votes)
+                switch (this.settings.gameRule)
+                {
+                    default: // Lowest value
+                        let lowestValue = 100;
+                        this.dbData.features[this.featurePointer].votes.forEach(vote => {
+                            if (vote.value != null && vote.value < lowestValue)
+                                lowestValue = vote.value;
+                        });
+                        this.setCardScore(lowestValue);
+                    break;
+                }
 
                 this.state = 'round1';
 
@@ -460,5 +482,22 @@ class Session
     updateDBData()
     {
         return SessionObject.find({_id: this.dbData._id})
+    }
+    /**
+     * Sets the card score after the second round
+     * @param {Number score 
+     */
+    setCardScore(score)
+    {
+        let cardName = this.backlog.cards[this.featurePointer].name;
+        // Check if our card already has a score
+        console.log(cardName + " - ", cardName.startsWith('('))
+        if (cardName.startsWith('(') && cardName.match(/\([1-9]*\)/))
+            cardName = cardName.replace(/\([1-9]*\)/, `(${score})`); // Replace the current score
+        else
+            cardName = `(${score}) ${cardName}`; // Else add the score at the start of the name
+
+        // Now we update the name of the card to our new name
+        this.trelloApi.updateCardName(this.backlog.cards[this.featurePointer], cardName);
     }
 }
