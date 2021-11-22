@@ -42,7 +42,7 @@ class TrelloApi
      */
     getBoardMembers(boardID)
     {
-        let url = `${this.baseUrl}/boards/${boardID}/memberships?key=${this.key}&token=${this.token}`;
+        let url = `${this.baseUrl}/boards/${boardID}/members?key=${this.key}&token=${this.token}`;
         return new Promise((resolve, reject) => {
             axios({
                 method: 'GET',
@@ -99,15 +99,13 @@ class TrelloApi
     }
 
     /**
-     * 
+     * Gets all cards from a list by ID
      * @param {string} listID 
      * @returns {Promise<Array<Card>>}
      */
     getCardsFromList(listID)
     {
         let url = `${this.baseUrl}/lists/${listID}/cards?key=${this.key}&token=${this.token}&checklists=all`;
-
-
         return new Promise((resolve, reject) => {
             axios({
                 method: 'GET',
@@ -125,7 +123,8 @@ class TrelloApi
     /** 
      * Update the name/title of the card in Trello 
      * @param {Card} card 
-     * @param {string} name  
+     * @param {string} name
+     * @returns {Promise<Card>} The card given with a updated name
      */ 
     updateCardName(card, name) 
     { 
@@ -133,13 +132,32 @@ class TrelloApi
         return new Promise((resolve, reject) => { 
             axios({ 
                 method: 'PUT', 
-                url 
+                url
             }).then(res => {
-                console.log(res); 
                 card.name = name; 
                 resolve(card); 
             }).catch(err => reject(err)); 
         }); 
+    }
+    
+    /**
+     * Adds a member by ID to the given card
+     * @param {Card} card 
+     * @param {string} memberID 
+     * @returns {Promise<Card>} The card given with an updated memberList
+     */
+    addMemberToCard(card, memberID)
+    {
+        let url = `${this.baseUrl}/cards/${card.id}/idMembers/?value=${memberID}&key=${this.key}&token=${this.token}`;
+        return new Promise((resolve, reject) => {
+            axios({
+                method: 'POST',
+                url
+            }).then(res => {
+                card.members.push(memberID);
+                resolve(card);
+            });
+        });
     }
 }
 

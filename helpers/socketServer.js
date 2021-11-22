@@ -366,8 +366,7 @@ class Session
         {
             case 'waiting':
                 this.state = 'round1';
-
-                this.createFeatureObject()
+                this.createFeatureObject();
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
 
