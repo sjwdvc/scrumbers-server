@@ -169,7 +169,9 @@ module.exports = function(io)
         });
 
         client.on('feature', args => {
-
+            /**
+             * @type {Session}
+             */
             let currentSession = this.activeSessions.find(session => session.key == args.key);
             
             switch (args.event)
@@ -219,6 +221,24 @@ module.exports = function(io)
                                 currentSession.loadNextState();
 
                         }).catch(err => console.error(err));
+                    }
+                break;
+
+                case 'choose': 
+                    // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
+                    if (currentSession.state != 'admin_chooses' && client.id != currentSession.admin.id) return;
+
+                    // Check if we have recived a value
+                    if (!args.memberID) client.emit('error', { error: 'memberID not found in arguments' });
+                    // Check if our given memberID is valid
+                    else if (!args.memberID.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
+                    else 
+                    {
+                        // Add the given user to the card and load the next state
+                        currentSession.trelloApi.addMemberToCard(
+                            currentSession.backlog.cards[currentSession.featurePointer].id,
+                            args.memberID
+                        );
                     }
                 break;
             }
@@ -274,7 +294,7 @@ class Session
 {
     /**
      * The state of our session
-     * @type {'waiting'|'round1'|'chat'|'round2'}
+     * @type {'waiting'|'round1'|'round2'|'admin_chooses'|'end'}
      */
     state = 'waiting';
 
@@ -364,6 +384,7 @@ class Session
     {
         switch(this.state)
         {
+            // Runs only when we start the game
             case 'waiting':
                 this.state = 'round1';
                 this.createFeatureObject();
@@ -387,9 +408,6 @@ class Session
             break;
 
             case 'round2':
-                // TODO:
-                // Add the client who 'won' the game to the feature card
-
                 // Add the final value to the feature card
                 console.log(this.dbData.features[this.featurePointer].votes)
                 switch (this.settings.gameRule)
@@ -403,7 +421,16 @@ class Session
                         this.setCardScore(lowestValue);
                     break;
                 }
+                
+                // Ask the admin to choose a memeber from list to add to the card
+                this.state = 'admin_chooses';
+                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
+                    this.admin.emit('admin', { event: 'choose', members });
+                }).catch(err => console.error(err));
+            break;
 
+            case 'admin_chooses':
+                // Continue to the next round
                 this.state = 'round1';
 
                 // Increase the feature pointer to grab new data
@@ -415,8 +442,13 @@ class Session
                 // Reset everyone's status to waiting
                 this.clients.forEach(client => client.status = 'waiting')
 
-                this.createFeatureObject()
+                this.createFeatureObject();
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
+            break;
+
+            case 'end':
+                // TODO:
+                // Do something when the game ends
             break;
         }
     }
