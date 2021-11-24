@@ -52,7 +52,8 @@ module.exports = function(io)
                                 SessionObject.create(
                                     {
                                         admin: Types.ObjectId(session.adminID),
-                                        features: []
+                                        features: [],
+                                        players: []
                                     }
                                 ).then(data => {
                                     session.dbData = data;
@@ -97,6 +98,7 @@ module.exports = function(io)
                     // If a session is found, continue
                     if (currentSession !== undefined)
                     {
+
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
@@ -105,7 +107,17 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
+                            console.log(client.uid);
+
+                         // Add player to players array in session database
+                            SessionObject.updateOne({ _id: currentSession.dbData._id}, {
+                                $push: { players: { id: client.uid, email: args.email } }
+                            }).catch(err => console.error(err));
                         });
+
+                       console.log(currentSession.dbData._id);
+                       console.log(client.uid);
+                        
 
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
@@ -191,11 +203,13 @@ module.exports = function(io)
                             $push:
                             {
                                 'features.$.votes': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args['number'],
                                     sender: client.name
                                 },
                                 'features.$.chat': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.desc,
                                     sender: client.name
@@ -236,6 +250,8 @@ module.exports = function(io)
                         $push:
                             {
                                 'features.$.chat': {
+                                    // round geeft verkeerde ronde aan met currentSession.state
+                                    // round: aparseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.message,
                                     sender: args.sender
@@ -445,6 +461,7 @@ class Session
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
+                    featureTitle : this.backlog.cards[this.featurePointer].name,
                     votes : [],
                     chat: []
                 }
