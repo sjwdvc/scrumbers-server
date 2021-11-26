@@ -10,7 +10,6 @@ module.exports = function(io)
 {
     /**
      * Store all active sessions in an array
-     * @type {Array.<Session>} 
      */
     if(!this.activeSessions)
         this.activeSessions = []
@@ -62,33 +61,15 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
-    
                                 // Push to active sessions
                                 this.activeSessions.push(session);
 
                                 trello.getListByName(board.id, "backlog")
-                                    .then(backlog => {
-                                        session.backlog = backlog;
-
-                                        trello.getCardsFromList(session.backlog.id)
-                                            .then(cards => {
-                                                session.backlog.cards = cards;
-
-                                                // Return the session key to front end
-                                                client.emit('createRoom', {key: key});
-                                            })
-                                            .catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
-                                    })
-                                    .catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
                             });
                         })
-                        .catch(err => {
-                            client.emit('urlError', {error: "Invalid Trello board"});
-                        });
                     }
                     else
                         client.emit('urlError', {error: "Only valid Trello url's allowed"});
-                break;
 
                 case 'join':
                     // Check if there is a session with the key the client is using to join
@@ -142,19 +123,14 @@ module.exports = function(io)
                         }
 
                     } else client.emit('undefinedSession');
-                break;
 
                 case 'start':
                     this.activeSessions.find(session => session.key == args.key)?.start();
                     break;
 
                 case 'leave':
-                    console.log("ACTIVE SESSION"+this.activeSessions);
-                    currentSession = this.activeSessions.find(session => 
-                        {
                             return session.key == args.key;
 
-                        });
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
@@ -168,17 +144,19 @@ module.exports = function(io)
         client.on('feature', args => {
 
             let currentSession = this.activeSessions.find(session => session.key == args.key);
-            
+
             switch (args.event)
             {
                 case 'submit':
 
                     // Check if during this state of the game we should be able to submit
-                    if (currentSession.state != 'round1' && currentSession.state != 'round2') 
+                    if (currentSession.state != 'round1' && currentSession.state != 'round2')
                     {
                         client.emit('error', { error: 'You can not submit during this state of the game' });
                         return;
                     }
+
+
 
                     // Check if the client has already submitted a value
                     if (!currentSession.submits.includes(args.email))
@@ -188,32 +166,38 @@ module.exports = function(io)
 
                         // Push the vote and chat message to the database
                         SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
-                            $push:
-                            {
-                                'features.$.votes': {
-                                    user: client.uid,
-                                    value: args['number'],
-                                    sender: client.name
-                                },
-                                'features.$.chat': {
-                                    user: client.uid,
-                                    value: args.desc,
-                                    sender: client.name
-                                }
                             }
                         },
                         {
                             arrayFilters: [{ 'i': currentSession.featurePointer }],
                             new: true
                         }).then(() => {
+                                                        }
+                                                },
+                                                {
+                                                    arrayFilters: [{ 'i': currentSession.featurePointer }],
+                                                    new: true
+                                                }).then(() => {
 
                             currentSession.broadcast('submit', {
                                 user: client.name,
                             });
 
+
+
                             // Check if all clients have submitted a value
                             if (currentSession.submits.length == currentSession.clients.length)
+                            {
+                                // Set the sesison state to end
+                                if(currentSession.backlog.cards.length === currentSession.featurePointer + 1 && currentSession.state === 'round2')
+                                {
+                                    currentSession.state = 'end'
+                                }
                                 currentSession.loadNextState();
+                            }
+
+
+
 
                         }).catch(err => console.error(err));
                     }
@@ -237,20 +221,19 @@ module.exports = function(io)
                             {
                                 'features.$.chat': {
                                     user: client.uid,
-                                    value: args.message,
-                                    sender: args.sender
-                                }
-                            }
-                    },
-                    {
-                        arrayFilters: [{ 'i': currentSession.featurePointer }],
-                        new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
+                                                $push:
+                                                    {
+                                                        'features.$.chat': {
+                                                            user: client.uid,
+                                                            value: args.message,
+                                                            sender: args.sender
+                                            },
+                                            {
+                                                arrayFilters: [{ 'i': currentSession.featurePointer }],
+                                                new: true
+                                            }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
 
-
-                    console.log('chat')
-
-                    console.log(args)
 
                     // send message to clients
                     currentSession.broadcast('chat', {
@@ -271,7 +254,7 @@ class Session
 {
     /**
      * The state of our session
-     * @type {'waiting'|'round1'|'chat'|'round2'}
+     * @type {'waiting'|'round1'|'chat'|'round2' | 'end'}
      */
     state = 'waiting';
 
@@ -282,7 +265,7 @@ class Session
     featurePointer = 0;
 
     /**
-     * A array of all clients that submitted 
+     * A array of all clients that submitted
      * @type {Array.<string>}
      */
     submits = [];
@@ -333,8 +316,7 @@ class Session
 
     /**
      * Emit an event to all clients connected to this session
-     * @param {string} event 
-     * @param {Object} args 
+     * @param {string} event
      */
     broadcast(event, args)
     {
@@ -347,7 +329,7 @@ class Session
         this.broadcast('started', {featuresLength: this.backlog.cards.length});
         this.loadNextState();
     }
-    
+
     /**
      * Loads the next state of the game
      */
@@ -361,7 +343,7 @@ class Session
                 this.createFeatureObject()
 
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
-            break;
+                break;
 
             case 'round1':
                 this.state = 'round2';
@@ -373,11 +355,9 @@ class Session
                     .then(response => {
                         this.dbData = response[0]
 
-                        console.log(this.dbData)
-
                         this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: this.dbData.features[this.featurePointer] });
                     })
-            break;
+                break;
 
             case 'round2':
                 // TODO:
@@ -397,6 +377,13 @@ class Session
                 this.createFeatureObject()
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
+
+            case 'end':
+                console.log('ended')
+                break;
+
+            default:
+                break;
         }
     }
 
@@ -411,9 +398,9 @@ class Session
         let users = []
         this.clients.forEach(client => {
             users.push({
-                name    : client.name,
-                status  : client.status
-            })
+                           name    : client.name,
+                           status  : client.status
+                       })
         })
 
         return {
@@ -450,8 +437,8 @@ class Session
                 }
             }
         }, { new: true })
-             .then(res => this.dbData = res)
-             .catch(err => console.error(err));
+                     .then(res => this.dbData = res)
+                     .catch(err => console.error(err));
     }
 
     /**
