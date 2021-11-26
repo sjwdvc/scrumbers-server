@@ -10,6 +10,7 @@ module.exports = function(io)
 {
     /**
      * Store all active sessions in an array
+     * @type {Array.<Session>} 
      */
     if(!this.activeSessions)
         this.activeSessions = []
@@ -51,7 +52,8 @@ module.exports = function(io)
                                 SessionObject.create(
                                     {
                                         admin: Types.ObjectId(session.adminID),
-                                        features: []
+                                        features: [],
+                                        players: []
                                     }
                                 ).then(data => {
                                     session.dbData = data;
@@ -61,15 +63,33 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
+    
                                 // Push to active sessions
                                 this.activeSessions.push(session);
 
                                 trello.getListByName(board.id, "backlog")
+                                    .then(backlog => {
+                                        session.backlog = backlog;
+
+                                        trello.getCardsFromList(session.backlog.id)
+                                            .then(cards => {
+                                                session.backlog.cards = cards;
+
+                                                // Return the session key to front end
+                                                client.emit('createRoom', {key: key});
+                                            })
+                                            .catch(err => client.emit('urlError', { error: "Error when getting cards from the backlog" }));
+                                    })
+                                    .catch(err => client.emit('urlError', { error: "Trello board doesn't have a backlog list" }));
                             });
                         })
+                        .catch(err => {
+                            client.emit('urlError', {error: "Invalid Trello board"});
+                        });
                     }
                     else
                         client.emit('urlError', {error: "Only valid Trello url's allowed"});
+                break;
 
                 case 'join':
                     // Check if there is a session with the key the client is using to join
@@ -78,6 +98,7 @@ module.exports = function(io)
                     // If a session is found, continue
                     if (currentSession !== undefined)
                     {
+
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
@@ -86,6 +107,12 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
+                            console.log(client.uid);
+
+                         // Add player to players array in session database
+                            SessionObject.updateOne({ _id: currentSession.dbData._id}, {
+                                $push: { players: { id: client.uid, email: args.email } }
+                            }).catch(err => console.error(err));
                         });
 
                         // Check if you are already pushed to the clients array when creating the room.
@@ -144,19 +171,17 @@ module.exports = function(io)
         client.on('feature', args => {
 
             let currentSession = this.activeSessions.find(session => session.key == args.key);
-
+            
             switch (args.event)
             {
                 case 'submit':
 
                     // Check if during this state of the game we should be able to submit
-                    if (currentSession.state != 'round1' && currentSession.state != 'round2')
+                    if (currentSession.state != 'round1' && currentSession.state != 'round2') 
                     {
                         client.emit('error', { error: 'You can not submit during this state of the game' });
                         return;
                     }
-
-
 
                     // Check if the client has already submitted a value
                     if (!currentSession.submits.includes(args.email))
@@ -166,24 +191,30 @@ module.exports = function(io)
 
                         // Push the vote and chat message to the database
                         SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
+                            $push:
+                            {
+                                'features.$.votes': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                    user: client.uid,
+                                    value: args['number'],
+                                    sender: client.name
+                                },
+                                'features.$.chat': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                    user: client.uid,
+                                    value: args.desc,
+                                    sender: client.name
+                                }
                             }
                         },
                         {
                             arrayFilters: [{ 'i': currentSession.featurePointer }],
                             new: true
                         }).then(() => {
-                                                        }
-                                                },
-                                                {
-                                                    arrayFilters: [{ 'i': currentSession.featurePointer }],
-                                                    new: true
-                                                }).then(() => {
 
                             currentSession.broadcast('submit', {
                                 user: client.name,
                             });
-
-
 
                             // Check if all clients have submitted a value
                             if (currentSession.submits.length == currentSession.clients.length)
@@ -220,19 +251,18 @@ module.exports = function(io)
                         $push:
                             {
                                 'features.$.chat': {
+                                    // round geeft verkeerde ronde aan met currentSession.state
+                                    // round: aparseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
+                                    value: args.message,
+                                    sender: args.sender
+                                }
+                            }
+                    },
+                    {
+                        arrayFilters: [{ 'i': currentSession.featurePointer }],
+                        new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
-                                                $push:
-                                                    {
-                                                        'features.$.chat': {
-                                                            user: client.uid,
-                                                            value: args.message,
-                                                            sender: args.sender
-                                            },
-                                            {
-                                                arrayFilters: [{ 'i': currentSession.featurePointer }],
-                                                new: true
-                                            }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
 
 
                     // send message to clients
@@ -316,7 +346,8 @@ class Session
 
     /**
      * Emit an event to all clients connected to this session
-     * @param {string} event
+     * @param {string} event 
+     * @param {Object} args 
      */
     broadcast(event, args)
     {
@@ -329,7 +360,7 @@ class Session
         this.broadcast('started', {featuresLength: this.backlog.cards.length});
         this.loadNextState();
     }
-
+    
     /**
      * Loads the next state of the game
      */
@@ -343,7 +374,7 @@ class Session
                 this.createFeatureObject()
 
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
-                break;
+            break;
 
             case 'round1':
                 this.state = 'round2';
@@ -398,9 +429,9 @@ class Session
         let users = []
         this.clients.forEach(client => {
             users.push({
-                           name    : client.name,
-                           status  : client.status
-                       })
+                name    : client.name,
+                status  : client.status
+            })
         })
 
         return {
@@ -432,6 +463,7 @@ class Session
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
+                    featureTitle : this.backlog.cards[this.featurePointer].name,
                     votes : [],
                     chat: []
                 }

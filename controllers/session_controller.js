@@ -4,6 +4,7 @@
  */
 
 const User = require('../models/user_schema')
+const SessionObject = require('../models/session_schema')
 
 
 const check = (req, res) => {
@@ -20,6 +21,21 @@ const check = (req, res) => {
                 res.status(200).json({login: true, email: req.session.email, name: data[0].name});
             })
     }
+}
+
+const featureHistory = (req, res) => {
+    // https://stackoverflow.com/questions/20763770/find-query-array-of-arrays-in-mongo/20770274
+    // Testen of dit werkt v
+    // SessionObject.find({'players':{$elemMatch:{$elemMatch:{$in:[req.session.email]}}}})
+
+    // SessionObject.find({'players.$.email': req.session.email})
+    SessionObject.find({players : { $elemMatch: { email: req.session.email}}})
+        .then((data) =>{
+            console.log(data);
+            console.log("PLAYERS: "+data.players);
+            res.status(200).json({test: "test", sessions: {data}});
+        })
+
 }
 
 const email = (req, res) => {
@@ -39,5 +55,6 @@ const logout = (req, res) => {
 module.exports = {
     check,
     logout,
-    email
+    email,
+    featureHistory
 }
