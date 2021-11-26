@@ -173,7 +173,6 @@ module.exports = function(io)
              * @type {Session}
              */
             let currentSession = this.activeSessions.find(session => session.key == args.key);
-            
             switch (args.event)
             {
                 case 'submit':
@@ -236,9 +235,15 @@ module.exports = function(io)
                     {
                         // Add the given user to the card and load the next state
                         currentSession.trelloApi.addMemberToCard(
-                            currentSession.backlog.cards[currentSession.featurePointer].id,
+                            currentSession.backlog.cards[currentSession.featurePointer],
                             args.memberID
-                        );
+                        ).then(() => {
+                            currentSession.loadNextState();
+                        }).catch(err => {
+                            if (err?.response?.data == 'member is already on the card')
+                                currentSession.loadNextState();
+                            else console.error(err.response.data);
+                        });
                     }
                 break;
             }
@@ -522,9 +527,8 @@ class Session
     {
         let cardName = this.backlog.cards[this.featurePointer].name;
         // Check if our card already has a score
-        console.log(cardName + " - ", cardName.startsWith('('))
-        if (cardName.startsWith('(') && cardName.match(/\([1-9]*\)/))
-            cardName = cardName.replace(/\([1-9]*\)/, `(${score})`); // Replace the current score
+        if (cardName.match(/\([0-9]*\)/))
+            cardName = cardName.replace(/\([0-9]*\)/, `(${score})`); // Replace the current score
         else
             cardName = `(${score}) ${cardName}`; // Else add the score at the start of the name
 

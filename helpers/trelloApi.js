@@ -156,7 +156,7 @@ class TrelloApi
             }).then(res => {
                 card.members.push(memberID);
                 resolve(card);
-            });
+            }).catch(err => reject(err));
         });
     }
 }
