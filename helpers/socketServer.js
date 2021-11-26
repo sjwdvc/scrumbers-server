@@ -238,10 +238,14 @@ module.exports = function(io)
                             currentSession.backlog.cards[currentSession.featurePointer],
                             args.memberID
                         ).then(() => {
+                            currentSession.featureAssignedMember = args.memberID;
                             currentSession.loadNextState();
                         }).catch(err => {
                             if (err?.response?.data == 'member is already on the card')
+                            {
+                                currentSession.featureAssignedMember = args.memberID;
                                 currentSession.loadNextState();
+                            }
                             else console.error(err.response.data);
                         });
                     }
@@ -413,8 +417,16 @@ class Session
             break;
 
             case 'round2':
+                // Ask the admin to choose a memeber from list to add to the card
+                this.state = 'admin_chooses';
+                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
+                    this.admin.emit('admin', { event: 'choose', members });
+                }).catch(err => console.error(err));
+            break;
+
+            case 'admin_chooses':
                 // Add the final value to the feature card
-                console.log(this.dbData.features[this.featurePointer].votes)
+                let number = 0;
                 switch (this.settings.gameRule)
                 {
                     default: // Lowest value
@@ -424,17 +436,16 @@ class Session
                                 lowestValue = vote.value;
                         });
                         this.setCardScore(lowestValue);
+                        number = lowestValue;
                     break;
                 }
-                
-                // Ask the admin to choose a memeber from list to add to the card
-                this.state = 'admin_chooses';
-                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
-                    this.admin.emit('admin', { event: 'choose', members });
-                }).catch(err => console.error(err));
-            break;
 
-            case 'admin_chooses':
+                // Send the results back to the client
+                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
+                    this.broadcast('results', { number, member: members.find(member => member.id == this.featureAssignedMember).fullName });
+                    this.featureAssignedMember = null;
+                }).catch(err => console.error(err));
+
                 // Continue to the next round
                 this.state = 'round1';
 
