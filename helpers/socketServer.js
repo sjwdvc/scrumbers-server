@@ -52,8 +52,7 @@ module.exports = function(io)
                                 SessionObject.create(
                                     {
                                         admin: Types.ObjectId(session.adminID),
-                                        features: [],
-                                        players: []
+                                        features: []
                                     }
                                 ).then(data => {
                                     session.dbData = data;
@@ -63,6 +62,9 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
+
+                                // Give our setting to the session
+                                session.settings = args.settings;
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
@@ -98,7 +100,6 @@ module.exports = function(io)
                     // If a session is found, continue
                     if (currentSession !== undefined)
                     {
-
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
@@ -107,12 +108,6 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
-                            console.log(client.uid);
-
-                         // Add player to players array in session database
-                            SessionObject.updateOne({ _id: currentSession.dbData._id}, {
-                                $push: { players: { id: client.uid, email: args.email } }
-                            }).catch(err => console.error(err));
                         });
 
                         // Check if you are already pushed to the clients array when creating the room.
@@ -150,14 +145,19 @@ module.exports = function(io)
                         }
 
                     } else client.emit('undefinedSession');
+                break;
 
                 case 'start':
                     this.activeSessions.find(session => session.key == args.key)?.start();
                     break;
 
                 case 'leave':
+                    console.log("ACTIVE SESSION"+this.activeSessions);
+                    currentSession = this.activeSessions.find(session => 
+                        {
                             return session.key == args.key;
 
+                        });
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
@@ -169,9 +169,10 @@ module.exports = function(io)
         });
 
         client.on('feature', args => {
-
+            /**
+             * @type {Session}
+             */
             let currentSession = this.activeSessions.find(session => session.key == args.key);
-            
             switch (args.event)
             {
                 case 'submit':
@@ -194,13 +195,11 @@ module.exports = function(io)
                             $push:
                             {
                                 'features.$.votes': {
-                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args['number'],
                                     sender: client.name
                                 },
                                 'features.$.chat': {
-                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.desc,
                                     sender: client.name
@@ -218,19 +217,37 @@ module.exports = function(io)
 
                             // Check if all clients have submitted a value
                             if (currentSession.submits.length == currentSession.clients.length)
-                            {
-                                // Set the sesison state to end
-                                if(currentSession.backlog.cards.length === currentSession.featurePointer + 1 && currentSession.state === 'round2')
-                                {
-                                    currentSession.state = 'end'
-                                }
                                 currentSession.loadNextState();
-                            }
-
-
-
 
                         }).catch(err => console.error(err));
+                    }
+                break;
+
+                case 'choose': 
+                    // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
+                    if (currentSession.state != 'admin_chooses' && client.id != currentSession.admin.id) return;
+
+                    // Check if we have recived a value
+                    if (!args.memberID) client.emit('error', { error: 'memberID not found in arguments' });
+                    // Check if our given memberID is valid
+                    else if (!args.memberID.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
+                    else 
+                    {
+                        // Add the given user to the card and load the next state
+                        currentSession.trelloApi.addMemberToCard(
+                            currentSession.backlog.cards[currentSession.featurePointer],
+                            args.memberID
+                        ).then(() => {
+                            currentSession.featureAssignedMember = args.memberID;
+                            currentSession.loadNextState();
+                        }).catch(err => {
+                            if (err?.response?.data == 'member is already on the card')
+                            {
+                                currentSession.featureAssignedMember = args.memberID;
+                                currentSession.loadNextState();
+                            }
+                            else console.error(err.response.data);
+                        });
                     }
                 break;
             }
@@ -251,8 +268,6 @@ module.exports = function(io)
                         $push:
                             {
                                 'features.$.chat': {
-                                    // round geeft verkeerde ronde aan met currentSession.state
-                                    // round: aparseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.message,
                                     sender: args.sender
@@ -264,6 +279,10 @@ module.exports = function(io)
                         new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
 
+
+                    console.log('chat')
+
+                    console.log(args)
 
                     // send message to clients
                     currentSession.broadcast('chat', {
@@ -284,7 +303,7 @@ class Session
 {
     /**
      * The state of our session
-     * @type {'waiting'|'round1'|'chat'|'round2' | 'end'}
+     * @type {'waiting'|'round1'|'round2'|'admin_chooses'|'end'}
      */
     state = 'waiting';
 
@@ -295,7 +314,7 @@ class Session
     featurePointer = 0;
 
     /**
-     * A array of all clients that submitted
+     * A array of all clients that submitted 
      * @type {Array.<string>}
      */
     submits = [];
@@ -329,6 +348,12 @@ class Session
      * @type {{_id: Types.ObjectId, admin: Types.ObjectId, features: Array.<{votes: Array.<{user: Types.ObjectId, value: Number}>, chat: Array.<{user: Types.ObjectId, value: string}>}>}}
      */
     dbData = null;
+
+    /**
+     * Our session settings
+     * @type {{coffeeTimeout: string, gameRule: string}}
+     */
+    settings = null;
 
     /**
      * Create a new session
@@ -368,11 +393,10 @@ class Session
     {
         switch(this.state)
         {
+            // Runs only when we start the game
             case 'waiting':
                 this.state = 'round1';
-
-                this.createFeatureObject()
-
+                this.createFeatureObject();
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
 
@@ -386,14 +410,43 @@ class Session
                     .then(response => {
                         this.dbData = response[0]
 
+                        console.log(this.dbData)
+
                         this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: this.dbData.features[this.featurePointer] });
                     })
-                break;
+            break;
 
             case 'round2':
-                // TODO:
-                // Add the client who 'won' the game to the feature card
+                // Ask the admin to choose a memeber from list to add to the card
+                this.state = 'admin_chooses';
+                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
+                    this.admin.emit('admin', { event: 'choose', members });
+                }).catch(err => console.error(err));
+            break;
 
+            case 'admin_chooses':
+                // Add the final value to the feature card
+                let number = 0;
+                switch (this.settings.gameRule)
+                {
+                    default: // Lowest value
+                        let lowestValue = 100;
+                        this.dbData.features[this.featurePointer].votes.forEach(vote => {
+                            if (vote.value != null && vote.value < lowestValue)
+                                lowestValue = vote.value;
+                        });
+                        this.setCardScore(lowestValue);
+                        number = lowestValue;
+                    break;
+                }
+
+                // Send the results back to the client
+                this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
+                    this.broadcast('results', { number, member: members.find(member => member.id == this.featureAssignedMember).fullName });
+                    this.featureAssignedMember = null;
+                }).catch(err => console.error(err));
+
+                // Continue to the next round
                 this.state = 'round1';
 
                 // Increase the feature pointer to grab new data
@@ -405,16 +458,14 @@ class Session
                 // Reset everyone's status to waiting
                 this.clients.forEach(client => client.status = 'waiting')
 
-                this.createFeatureObject()
+                this.createFeatureObject();
                 this.broadcast('load', { toLoad: this.state, data: this.featureData() });
             break;
 
             case 'end':
-                console.log('ended')
-                break;
-
-            default:
-                break;
+                // TODO:
+                // Do something when the game ends
+            break;
         }
     }
 
@@ -463,14 +514,13 @@ class Session
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
-                    featureTitle : this.backlog.cards[this.featurePointer].name,
                     votes : [],
                     chat: []
                 }
             }
         }, { new: true })
-                     .then(res => this.dbData = res)
-                     .catch(err => console.error(err));
+             .then(res => this.dbData = res)
+             .catch(err => console.error(err));
     }
 
     /**
@@ -479,5 +529,21 @@ class Session
     updateDBData()
     {
         return SessionObject.find({_id: this.dbData._id})
+    }
+    /**
+     * Sets the card score after the second round
+     * @param {Number score 
+     */
+    setCardScore(score)
+    {
+        let cardName = this.backlog.cards[this.featurePointer].name;
+        // Check if our card already has a score
+        if (cardName.match(/\([0-9]*\)/))
+            cardName = cardName.replace(/\([0-9]*\)/, `(${score})`); // Replace the current score
+        else
+            cardName = `(${score}) ${cardName}`; // Else add the score at the start of the name
+
+        // Now we update the name of the card to our new name
+        this.trelloApi.updateCardName(this.backlog.cards[this.featurePointer], cardName);
     }
 }
