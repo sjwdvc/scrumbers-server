@@ -3,6 +3,7 @@ const ObjectId = require('mongoose').Types.ObjectId;
 
 const vote = new Schema(
     {
+        round : Number,
         user : ObjectId,
         value : Number,
         sender: String
