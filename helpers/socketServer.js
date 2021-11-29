@@ -616,7 +616,7 @@ class Session
 
                 // Send the results back to the client
                 this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
-                    this.broadcast('results', { number, member: members.find(member => member.id == this.featureAssignedMember).fullName });
+                    this.broadcast('results', { number, member: members.find(member => member.id == this.featureAssignedMember).fullName, feature: this.backlog.cards[this.featurePointer - 1] });
                     this.featureAssignedMember = null;
                 }).catch(err => console.error(err));
 
