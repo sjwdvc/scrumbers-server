@@ -36,6 +36,10 @@ module.exports = function(io)
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
 
+                             
+                
+              
+
                         trello.getBoard(match[1]).then(board => {
 
                             // Set each client credentials
@@ -45,6 +49,8 @@ module.exports = function(io)
                             // Create session a key
                             let key = generateID();
 
+                            
+                            
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
 
@@ -52,7 +58,8 @@ module.exports = function(io)
                                 SessionObject.create(
                                     {
                                         admin: Types.ObjectId(session.adminID),
-                                        features: []
+                                        features: [],
+                                        players: []
                                     }
                                 ).then(data => {
                                     session.dbData = data;
@@ -62,9 +69,9 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
-
-                                // Give our setting to the session
-                                session.settings = args.settings;
+                              
+                                // Put coffee time out length in session
+                                session.coffee = args.coffee;
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
@@ -76,7 +83,7 @@ module.exports = function(io)
                                         trello.getCardsFromList(session.backlog.id)
                                             .then(cards => {
                                                 session.backlog.cards = cards;
-
+                                            
                                                 // Return the session key to front end
                                                 client.emit('createRoom', {key: key});
                                             })
@@ -94,12 +101,15 @@ module.exports = function(io)
                 break;
 
                 case 'join':
+       
+
                     // Check if there is a session with the key the client is using to join
                     currentSession = this.activeSessions.find(session => session.key == args.key);
 
                     // If a session is found, continue
                     if (currentSession !== undefined)
                     {
+
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
@@ -109,7 +119,7 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
-
+           
                             // Add player to players array in session database if not done yet
                             SessionObject
                                 .find({'_id' : Types.ObjectId(currentSession.dbData._id), 'players.email' : args.email})
@@ -123,7 +133,6 @@ module.exports = function(io)
                                     }
                                 })
                         });
-
 
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
@@ -240,12 +249,14 @@ module.exports = function(io)
                             $push:
                             {
                                 'features.$.votes': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args['number'],
                                     sender: client.name,
                                     round: currentSession.state === 'round1' ? 1 : 2
                                 },
                                 'features.$.chat': {
+                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.desc,
                                     sender: client.name,
@@ -263,8 +274,29 @@ module.exports = function(io)
                             });
 
                             // Check if all clients have submitted a value
-                            if (currentSession.submits.length == currentSession.clients.length)
-                                currentSession.loadNextState();
+                            if (currentSession.submits.length == currentSession.clients.length){
+                                // Check if users have selected coffee card
+                                currentSession.checkCoffee();
+                            
+                                // Start timer if state is correct
+                                this.timerCanStart = function (switchS){
+                                    let switchState = false;
+                                    switchState = switchS;
+
+                                        // Starts the timer
+                                        if (switchState == true)
+                                            client.emit('startTimer');
+                                         
+                                        // Loads next state without starting the timer
+                                        if (switchState == false)
+                                            currentSession.loadNextState();
+                                            // Later fix that it return to round 1 after coffee timeout
+                                        
+                                
+                                }
+                            }
+                                
+                                
 
                         }).catch(err => console.error(err));
                     }
@@ -308,6 +340,42 @@ module.exports = function(io)
             }
         });
 
+        // Start timer on server
+        client.on('timer', args =>{
+            let currentSession = this.activeSessions.find(session => session.key == args.key);
+
+            // Timer length in minutes
+            let timeOutMinutes	= args.length;
+
+            // Timer settings
+            let interval = 100; 
+            let timeOutSeconds = 0;
+            let timer = setInterval(function(){
+                console.log(timeOutSeconds);
+                if(timeOutMinutes==0 && timeOutSeconds==0){
+                    clearTimeout(timer);
+                    timeOutMinutes =0;
+                    timeOutSeconds ="00";
+                    timerCanStart(false);
+                    return;
+                }
+                if(timeOutSeconds == 0){
+                    timeOutSeconds=60;
+                    timeOutMinutes = timeOutMinutes-1;
+                }
+                timeOutSeconds = timeOutSeconds-1;
+
+                currentSession.broadcast('sendTime', {
+                    timeMinutes: timeOutMinutes, 
+                    timeSeconds: timeOutSeconds
+                });
+               
+            }, interval);
+	
+
+            // Send time left to clients
+        })
+
         // get chat related activities
         client.on('chat', args => {
             // get the current session
@@ -323,6 +391,8 @@ module.exports = function(io)
                         $push:
                             {
                                 'features.$.chat': {
+                                    // round geeft verkeerde ronde aan met currentSession.state
+                                    // round: aparseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.message,
                                     sender: args.sender,
@@ -364,6 +434,14 @@ class Session
      * @type {number}
      */
     featurePointer = 0;
+
+
+      /**
+     * The timeout
+     * @type {number}
+     */
+    coffee = 0;
+    
 
     /**
      * A array of all clients that submitted 
@@ -437,6 +515,48 @@ class Session
         this.broadcast('started', {featuresLength: this.backlog.cards.length});
         this.loadNextState();
     }
+
+    checkCoffee()
+    {
+        let coffeeVotes = 0;
+
+        // GET DATA FROM DATABASE
+        this.updateDBData().then(response => {
+            let round;
+            this.dbData = response[0];
+            let playerCount = this.dbData.features[this.featurePointer].votes.length;
+            let playerhalf = playerCount/2;
+            playerhalf = Math.round(playerhalf);
+            if(this.state=='round1')
+                round = 1;
+            else
+                round = 2;
+            // if value = -1 (coffee card) add coffee card vote to counter
+            for (let index = 0; index < playerCount; index++) 
+            {
+                // Check for right round
+                if(this.dbData.features[this.featurePointer].votes[index].round == round)
+                {        
+                    if(this.dbData.features[this.featurePointer].votes[index].value == -1)
+                    {
+                        coffeeVotes++;
+                        if(coffeeVotes >= playerhalf)
+                            // Call timer can start
+                            timerCanStart(true);
+                        else
+                            // If players have voted coffee but not half or more
+                            timerCanStart(false);
+                    }
+                    else
+                    {
+                        // if no players have voted coffee
+                        timerCanStart(false);
+                    }
+                }
+            }
+                
+        });
+    }
     
     /**
      * Loads the next state of the game
@@ -462,13 +582,14 @@ class Session
                     .then(response => {
                         this.dbData = response[0]
 
-                        console.log(this.dbData)
+                        // console.log(this.dbData);
 
                         this.broadcast('load', { toLoad: this.state, data: this.featureData(), chats: this.dbData.features[this.featurePointer] });
                     })
             break;
 
             case 'round2':
+
                 // Ask the admin to choose a memeber from list to add to the card
                 this.state = 'admin_chooses';
                 this.trelloApi.getBoardMembers(this.trelloBoard.id).then(members => {
@@ -554,7 +675,9 @@ class Session
             featuresLength  : this.backlog.cards.length,
 
             // An object containing the users and their current status, created above
-            users           : users
+            users           : users,
+
+            coffee          : this.coffee
         }
     }
 
