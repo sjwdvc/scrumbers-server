@@ -31,11 +31,8 @@ const featureHistory = (req, res) => {
     // SessionObject.find({'players.$.email': req.session.email})
     SessionObject.find({players : { $elemMatch: { email: req.session.email}}})
         .then((data) =>{
-            console.log(data);
-            console.log("PLAYERS: "+data.players);
             res.status(200).json({test: "test", sessions: {data}});
         })
-
 }
 
 const email = (req, res) => {

@@ -21,7 +21,7 @@ const message = new Schema(
 
 const feature = new Schema(
     {
-        featureTitle : String,
+        title : String,
         votes : [vote],
         chat: [message]
     }
