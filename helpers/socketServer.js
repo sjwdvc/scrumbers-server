@@ -236,38 +236,27 @@ module.exports = function(io)
                             });
 
                             // Check if all clients have submitted a value
-                            if (currentSession.submits.length == currentSession.clients.length)
+                            if (currentSession.submits.length == currentSession.clients.length){
                                 // Check if users have selected coffee card
                                 currentSession.checkCoffee();
                             
                                 // Start timer if state is correct
-                                this.timerCanStart = function (test){
-                                    var switchState = false;
-                                    switchState = test;
-                                
-                                    console.log("timerCanStart executed");
-                                    
-                                    console.log("SwitchState: "+test);
+                                this.timerCanStart = function (switchS){
+                                    let switchState = false;
+                                    switchState = switchS;
 
                                         // Starts the timer
-                                        if (switchState == true){
-                                            console.log("emiting starttimer");
+                                        if (switchState == true)
                                             client.emit('startTimer');
-                                        } 
+                                         
                                         // Loads next state without starting the timer
-                                        if (switchState == false){
-                                            console.log("Load next state");
-                                            // om te doen: aanspreken met een socket event via frontent
-
-
-                                            // After feature 1 the next state doesnt get loaded in
-                                            // NEED TO FIX
+                                        if (switchState == false)
                                             currentSession.loadNextState();
                                             // Later fix that it return to round 1 after coffee timeout
-                                        }
+                                        
                                 
                                 }
-                                console.log("na timercanstart");
+                            }
                                 
                                 
 
@@ -281,21 +270,15 @@ module.exports = function(io)
         client.on('timer', args =>{
             let currentSession = this.activeSessions.find(session => session.key == args.key);
 
-            console.log(args);
-
             // Timer length in minutes
-            console.log(args.length);
-
-            console.log("Timer Started");
-            var timeOutMinutes	= args.length;
+            let timeOutMinutes	= args.length;
 
             // Timer settings
-            var interval = 100; 
-            var timeOutSeconds = 0;
-            var timer = setInterval(function(){
+            let interval = 100; 
+            let timeOutSeconds = 0;
+            let timer = setInterval(function(){
                 console.log(timeOutSeconds);
                 if(timeOutMinutes==0 && timeOutSeconds==0){
-                    console.log("Timer done");
                     clearTimeout(timer);
                     timeOutMinutes =0;
                     timeOutSeconds ="00";
@@ -458,31 +441,19 @@ class Session
 
     checkCoffee()
     {
-        var coffeeVotes = 0;
-        console.log(this.clients.length);
-        // console.log("DBDATA: "+this.dbData);
-        // console.log("FEATURES: "+this.dbData.features);
-        // console.log("VOTES: "+this.dbData.features.votes);
+        let coffeeVotes = 0;
 
         // GET DATA FROM DATABASE
         this.updateDBData().then(response => {
-            var round;
+            let round;
             this.dbData = response[0];
-            console.log("DBDATA: "+this.dbData);
-            console.log("VOTES: "+this.dbData.features[this.featurePointer].votes[0]);
-            var playerCount = this.dbData.features[this.featurePointer].votes.length;
-            var playerhalf = playerCount/2;
+            let playerCount = this.dbData.features[this.featurePointer].votes.length;
+            let playerhalf = playerCount/2;
             playerhalf = Math.round(playerhalf);
-            console.log("STATE: "+this.state);
-            console.log(playerhalf);
             if(this.state=='round1')
-            {
                 round = 1;
-            }
             else
-            {
                 round = 2;
-            }
             // if value = -1 (coffee card) add coffee card vote to counter
             for (let index = 0; index < playerCount; index++) 
             {
@@ -492,19 +463,12 @@ class Session
                     if(this.dbData.features[this.featurePointer].votes[index].value == -1)
                     {
                         coffeeVotes++;
-                        console.log("Votes for coffee: "+coffeeVotes);
-                        console.log("Player count: "+playerCount);
                         if(coffeeVotes >= playerhalf)
-                        {
-                            console.log("Activeer timeout");
                             // Call timer can start
                             timerCanStart(true);
-                        }
                         else
-                        {
                             // If players have voted coffee but not half or more
                             timerCanStart(false);
-                        }
                     }
                     else
                     {
