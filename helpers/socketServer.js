@@ -106,14 +106,31 @@ module.exports = function(io)
                         client.email    = args.email;
                         client.status   = currentSession.submits.includes(args.email) ? 'ready' : 'waiting' || 'waiting'
 
+
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
+
+                            // Add player to players array in session database if not done yet
+                            SessionObject
+                                .find({'_id' : Types.ObjectId(currentSession.dbData._id), 'players.email' : args.email})
+                                .then(data => {
+                                    console.log(data)
+                                    if(data.length === 0)
+                                    {
+                                        SessionObject.updateOne({ _id: currentSession.dbData._id}, {
+                                            $push: { players: { id: client.uid, email: args.email } }
+                                        }).catch(err => console.error(err));
+                                    }
+                                })
                         });
+
 
                         // Check if you are already pushed to the clients array when creating the room.
                         // The session page has a join event on load, so this prevents double joins
                         if(!currentSession.clients.some(currentClient => currentClient.email === args.email))
                             currentSession.clients.push(client);
+
+
 
                         // If you're the admin and you're trying to reconnect with a different client. replace the old clients and the admin socket
                         else if(currentSession.admin.email === client.email)
@@ -164,7 +181,35 @@ module.exports = function(io)
                     let users = [];
                     currentSession.clients.forEach(client => users.push({ name: client.name, status: client.status }));
                     currentSession.broadcast('leftSession', {data : {userLeft: client.name, users: users}});
-                    break;
+                break;
+
+                // Loads the session history data for the session history/lookback component
+                case 'history':
+                    switch(args.config)
+                    {
+                        case 'all':
+                            console.log(args.email)
+
+                            SessionObject
+                                .find({players : { $elemMatch: { email: args.email }}})
+                                .then(data => {
+                                    console.log('historydata')
+                                    console.log(data)
+                                    client.emit('history', { sessions: data })
+                                })
+                        break;
+
+                        case 'single':
+                            currentSession = this.activeSessions.find(session => session.key == args.key);
+
+                            SessionObject
+                                .find({_id : currentSession.dbData._id})
+                                .then((data) => {
+                                    client.emit('history', { sessions: data })
+                                })
+                        break;
+                    }
+                break;
             }
         });
 
@@ -197,12 +242,14 @@ module.exports = function(io)
                                 'features.$.votes': {
                                     user: client.uid,
                                     value: args['number'],
-                                    sender: client.name
+                                    sender: client.name,
+                                    round: currentSession.state === 'round1' ? 1 : 2
                                 },
                                 'features.$.chat': {
                                     user: client.uid,
                                     value: args.desc,
-                                    sender: client.name
+                                    sender: client.name,
+                                    round: currentSession.state === 'round1' ? 1 : 2
                                 }
                             }
                         },
@@ -244,9 +291,17 @@ module.exports = function(io)
                             if (err?.response?.data == 'member is already on the card')
                             {
                                 currentSession.featureAssignedMember = args.memberID;
+
+
+                                // When the admin assigns the last user>card, check if there is a next feature, else end the session
+                                if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
+                                {
+                                    currentSession.state = 'end';
+                                }
+
                                 currentSession.loadNextState();
                             }
-                            else console.error(err.response.data);
+                            else console.error(err);
                         });
                     }
                 break;
@@ -270,7 +325,8 @@ module.exports = function(io)
                                 'features.$.chat': {
                                     user: client.uid,
                                     value: args.message,
-                                    sender: args.sender
+                                    sender: args.sender,
+                                    round: args.round
                                 }
                             }
                     },
@@ -279,10 +335,6 @@ module.exports = function(io)
                         new: true
                     }).then(() => currentSession.updateDBData().then(response => currentSession.dbData = response[0]))
 
-
-                    console.log('chat')
-
-                    console.log(args)
 
                     // send message to clients
                     currentSession.broadcast('chat', {
@@ -463,8 +515,8 @@ class Session
             break;
 
             case 'end':
-                // TODO:
-                // Do something when the game ends
+                // Load db object
+                this.broadcast('load', { toLoad: this.state, data : this.dbData })
             break;
         }
     }
@@ -514,6 +566,7 @@ class Session
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
+                    title : this.backlog.cards[this.featurePointer].name,
                     votes : [],
                     chat: []
                 }

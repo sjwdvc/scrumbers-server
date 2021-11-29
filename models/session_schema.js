@@ -3,6 +3,7 @@ const ObjectId = require('mongoose').Types.ObjectId;
 
 const vote = new Schema(
     {
+        round : Number,
         user : ObjectId,
         value : Number,
         sender: String
@@ -11,6 +12,7 @@ const vote = new Schema(
 
 const message = new Schema(
     {
+        round : Number,
         user : ObjectId,
         value : String,
         sender: String
@@ -19,10 +21,18 @@ const message = new Schema(
 
 const feature = new Schema(
     {
+        title : String,
         votes : [vote],
         chat: [message]
     }
 );
+
+const player = new Schema(
+    {
+        id : ObjectId,
+        email : String
+    }
+)
 
 const sessionSchema = new Schema(
     {
@@ -31,6 +41,7 @@ const sessionSchema = new Schema(
             required : [true, 'admin field is required'],
         },
         features : [feature],
+        players : [player]
     },
     {timestamps : true}
 );
