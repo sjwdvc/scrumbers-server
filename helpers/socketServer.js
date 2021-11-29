@@ -600,7 +600,8 @@ class Session
             case 'admin_chooses':
                 // Add the final value to the feature card
                 let number = 0;
-                switch (this.settings.gameRule)
+                // switch (this.settings.gameRule)
+                switch (true)
                 {
                     default: // Lowest value
                         let lowestValue = 100;
