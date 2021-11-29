@@ -279,6 +279,8 @@ module.exports = function(io)
 
         // Start timer on server
         client.on('timer', args =>{
+            let currentSession = this.activeSessions.find(session => session.key == args.key);
+
             console.log(args);
 
             // Timer length in minutes
@@ -305,7 +307,12 @@ module.exports = function(io)
                     timeOutMinutes = timeOutMinutes-1;
                 }
                 timeOutSeconds = timeOutSeconds-1;
-                client.emit('sendTime',{timeMinutes: timeOutMinutes, timeSeconds: timeOutSeconds} );
+
+                currentSession.broadcast('sendTime', {
+                    timeMinutes: timeOutMinutes, 
+                    timeSeconds: timeOutSeconds
+                });
+               
             }, interval);
 	
 
