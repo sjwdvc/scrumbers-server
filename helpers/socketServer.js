@@ -709,14 +709,14 @@ class Session
     }
     /**
      * Sets the card score after the second round
-     * @param {Number score 
+     * @param {Number} score
      */
     setCardScore(score)
     {
         let cardName = this.backlog.cards[this.featurePointer].name;
         // Check if our card already has a score
-        if (cardName.match(/\([0-9]*\)/))
-            cardName = cardName.replace(/\([0-9]*\)/, `(${score})`); // Replace the current score
+        if (cardName.match(/\([\-|0-9|\.]*\)/))
+            cardName = cardName.replace(/\([\-|0-9|\.]*\)/, `(${score})`); // Replace the current score
         else
             cardName = `(${score}) ${cardName}`; // Else add the score at the start of the name
 
