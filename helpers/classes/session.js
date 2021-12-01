@@ -1,3 +1,9 @@
+const { Socket }    = require('socket.io');
+const SessionObject = require('../../models/session_schema');
+const { Types }     = require('mongoose');
+const { StateMachine, STATE }  = require('./stateMachine');
+const { TrelloApi, Board, List, Card } = require('../trelloApi');
+
 class Session
 {
     /**

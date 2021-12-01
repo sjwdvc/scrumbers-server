@@ -1,9 +1,8 @@
-const { Socket }    = require('socket.io');
 const SessionObject = require('../models/session_schema');
 const User          = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const Session  = require('./classes/session');
-const StateMachine  = require('./classes/stateMachine');
+const { StateMachine, STATE }  = require('./classes/stateMachine');
 const { TrelloApi, Board, List, Card } = require('./trelloApi');
 
 let generateID = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -127,7 +126,6 @@ module.exports = function(io)
                             SessionObject
                                 .find({'_id' : Types.ObjectId(currentSession.dbData._id), 'players.email' : args.email})
                                 .then(data => {
-                                    console.log(data)
                                     if(data.length === 0)
                                     {
                                         SessionObject.updateOne({ _id: currentSession.dbData._id}, {
@@ -162,14 +160,14 @@ module.exports = function(io)
                         currentSession.clients.forEach(client => users.push({name : client.name, status: client.status}));
                         currentSession.broadcast('joined', {data : {users: users, admin: currentSession.admin.name, name: client.name, started: currentSession.started}});
 
-                        switch(currentSession.state)
+                        switch(currentSession.stateMachine.state)
                         {
-                            case 'round2':
-                                client.emit('load', { toLoad: currentSession.state, data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                            case STATE.ROUND_2:
+                                client.emit('load', { toLoad: 'round2', data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
                                 break;
 
                             default:
-                                client.emit('load', { toLoad: currentSession.state, data: currentSession.featureData() });
+                                client.emit('load', { toLoad: 'round1', data: currentSession.featureData() });
                                 break;
                         }
 
@@ -181,7 +179,6 @@ module.exports = function(io)
                     break;
 
                 case 'leave':
-                    console.log("ACTIVE SESSION"+this.activeSessions);
                     currentSession = this.activeSessions.find(session => 
                         {
                             return session.key == args.key;
@@ -200,13 +197,9 @@ module.exports = function(io)
                     switch(args.config)
                     {
                         case 'all':
-                            console.log(args.email)
-
                             SessionObject
                                 .find({players : { $elemMatch: { email: args.email }}})
                                 .then(data => {
-                                    console.log('historydata')
-                                    console.log(data)
                                     client.emit('history', { sessions: data })
                                 })
                         break;
@@ -235,7 +228,7 @@ module.exports = function(io)
                 case 'submit':
 
                     // Check if during this state of the game we should be able to submit
-                    if (currentSession.state != 'round1' && currentSession.state != 'round2') 
+                    if (currentSession.stateMachine.state != STATE.ROUND_1 && currentSession.stateMachine.state != STATE.ROUND_2) 
                     {
                         client.emit('error', { error: 'You can not submit during this state of the game' });
                         return;
@@ -252,18 +245,18 @@ module.exports = function(io)
                             $push:
                             {
                                 'features.$.votes': {
-                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                    //round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args['number'],
                                     sender: client.name,
-                                    round: currentSession.state === 'round1' ? 1 : 2
+                                    round: currentSession.stateMachine.state
                                 },
                                 'features.$.chat': {
-                                    round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                    //round: parseInt(currentSession.state[currentSession.state.length-1]),
                                     user: client.uid,
                                     value: args.desc,
                                     sender: client.name,
-                                    round: currentSession.state === 'round1' ? 1 : 2
+                                    round: currentSession.stateMachine.state
                                 }
                             }
                         },
@@ -277,29 +270,10 @@ module.exports = function(io)
                             });
 
                             // Check if all clients have submitted a value
-                            if (currentSession.submits.length == currentSession.clients.length){
+                            if (currentSession.submits.length == currentSession.clients.length)
+                            {
                                 // Load the next state
-                                this.stateMachine.loadNextState();
-
-                                // // Check if users have selected coffee card
-                                // currentSession.checkCoffee();
-                            
-                                // // Start timer if state is correct
-                                // this.timerCanStart = function (switchS){
-                                //     let switchState = false;
-                                //     switchState = switchS;
-
-                                //         // Starts the timer
-                                //         if (switchState == true)
-                                //             client.emit('startTimer');
-                                         
-                                //         // Loads next state without starting the timer
-                                //         if (switchState == false)
-                                //             currentSession.loadNextState();
-                                //             // Later fix that it return to round 1 after coffee timeout
-                                        
-                                
-                                // }
+                                currentSession.stateMachine.loadNextState();
                             }
                                 
                                 
@@ -310,7 +284,7 @@ module.exports = function(io)
 
                 case 'choose': 
                     // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
-                    if (currentSession.state != 'admin_chooses' && client.id != currentSession.admin.id) return;
+                    if (currentSession.stateMachine.state != STATE.ADMIN && client.id != currentSession.admin.id) return;
 
                     // Check if we have recived a value
                     if (!args.memberID) client.emit('error', { error: 'memberID not found in arguments' });
@@ -334,7 +308,7 @@ module.exports = function(io)
                                 // When the admin assigns the last user>card, check if there is a next feature, else end the session
                                 if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
                                 {
-                                    currentSession.state = 'end';
+                                    currentSession.stateMachine.state = STATE.END;
                                 }
 
                                 currentSession.stateMachine.loadNextState();
