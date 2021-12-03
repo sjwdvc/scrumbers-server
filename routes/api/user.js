@@ -5,7 +5,8 @@ const {
     login,
     loginMicrosoft,
     userData,
-    updateUser
+    updateUser,
+    authMicrosoft
 } = require('../../controllers/user_controller');
 
 const router = express.Router();
@@ -15,7 +16,7 @@ router
     .post('/register', register)
     .post('/login', login)
     .post('/login/microsoft', loginMicrosoft)
-    .get('/auth/microsoft')
+    .get('/auth/microsoft', authMicrosoft)
     .get('/profile', userData)
     .post('/update', updateUser)
 
