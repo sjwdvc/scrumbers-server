@@ -3,9 +3,7 @@ const express   = require('express');
 const {
     register,
     login,
-    readData,
-    updateData,
-    deleteData,
+    loginMicrosoft,
     userData,
     updateUser
 } = require('../../controllers/user_controller');
@@ -16,6 +14,8 @@ router
     // User routes
     .post('/register', register)
     .post('/login', login)
+    .post('/login/microsoft', loginMicrosoft)
+    .get('/auth/microsoft')
     .get('/profile', userData)
     .post('/update', updateUser)
 

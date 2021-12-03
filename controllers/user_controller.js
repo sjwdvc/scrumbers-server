@@ -6,6 +6,7 @@ const fs        = require('fs');
 const bcrypt    = require('bcrypt');
 const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
+const msal      = require('@azure/msal-node');
 
 const User = require('../models/user_schema')
 
@@ -271,6 +272,62 @@ const login = (req, res) => {
         });
 }
 
+const cca = new msal.ConfidentialClientApplication({
+    auth: {
+        clientId:       process.env.MS_CLIENTID,
+        authority:      process.env.MS_AUTHORITY,
+        clientSecret:   process.env.MS_CLIENTSECRET,
+    },
+    system: {
+        loggerOptions: {
+            loggerCallback(logLevel, message, containsPii)
+            {
+                console.log(message);
+            },
+            piiLoggingEnabled: false,
+            logLevel: msal.LogLevel.Verbose
+        }
+    }
+});
+const loginMicrosoft = (req, res) => {
+    const authUrlParams = {
+        scopes: ["user.read"],
+        // TODO:
+        // Get server info (url/port)
+        redirectUri: "https://localhost:5555/auth/microsoft"
+    }
+    cca.getAuthCodeUrl(authUrlParams)
+        .then(response => {
+            res.status(200).json(
+                {
+                    oauthUrl: response
+                }
+            );
+        }).catch(err => {
+            console.log(err);
+            res.status(500).json(
+                {
+                    error: 'Error when creating url'
+                }
+            )
+        });
+}
+const authMicrosoft = (req, res) => {
+    const tokenRequest = {
+        code: req.query.code,
+        scopes: ["user.read"],
+        redirectUri: "https://localhost:5555/auth/microsoft"
+    };
+
+    cca.acquireTokenByCode(tokenRequest)
+        .then(response => {
+            console.log('Auth response: \n' + response);
+            res.status(200);
+            // TODO:
+            // res.Redirect terug naar de client
+        });
+}
+
 const generateToken = data => {
     // Secret is now stored in heroku config
     if (process.env.JWT_TOKEN_SECRET === "")
@@ -286,6 +343,8 @@ module.exports = {
     updateData,
     deleteData,
     login,
+    loginMicrosoft,
+    authMicrosoft,
     userData,
     updateUser
 };
