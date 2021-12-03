@@ -97,28 +97,34 @@ class Session
         this.stateMachine.loadNextState();
     }
 
-    checkCoffeeTimeout()
+    async checkCoffeeTimeout()
     {
-        let coffeVotes = 0;
+        let coffeeVotes = 0;
         // Get the votes from the database
-        this.updateDBData().then(response => {
-            this.dbData = response[0];
-            let feature = this.dbData.features[this.featurePointer];
+        this.dbData = await this.updateDBData(); // appending [0] here returns undefined. so next line
+        this.dbData = this.dbData[0];
 
-            // Loop all votes
-            for (let i = 0; i < feature.votes.length; i++)
-            {
-                // Check if the vote is -1 (coffetimeout card)
-                if (feature.votes[i].value == -1)
-                    coffeVotes++;
-            }
+        let votes = this.dbData.features[this.featurePointer] &&
+            this.dbData.features[this.featurePointer].votes.filter(vote => vote.round === this.stateMachine.state);
 
-            // Check if the majority of players chose the coffee card
-            if (coffeVotes > feature.votes.length)
-                return true; // Load the coffe timeout
-        });
-        return false; // Don't load the coffe timeout 
+        if(votes !== undefined) // Waiting state has no features yet
+        {
+
+
+            // TODO Add round to query
+            console.log('round : ' + this.stateMachine.state)
+
+            votes.forEach(vote => vote.value == -1 ? coffeeVotes++ : '');
+
+            let half = Math.floor(votes.length / 2) !== 0 ? Math.floor(votes.length / 2) : 1
+
+            console.log(votes)
+
+            return coffeeVotes >= half;
+        }
+        return false;
     }
+
 
     /**
      * Return the current feature data
@@ -184,6 +190,7 @@ class Session
     {
         return SessionObject.find({_id: this.dbData._id})
     }
+
     /**
      * Sets the card score after the second round
      * @param {Number} score

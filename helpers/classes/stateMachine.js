@@ -1,4 +1,5 @@
 const Session = require('./session');
+const currentSession = require("./session")
 
 const STATE = {
     WAITING: 0,
@@ -10,8 +11,9 @@ const STATE = {
 }
 
 class StateMachine {
-    state = STATE.WAITING; // Start with waiting state
-    prevState = 0;
+    state       = STATE.WAITING; // Start with waiting state
+    prevState   = 0;
+    coffeeUsed  = false;
 
     /**
      * 
@@ -21,16 +23,17 @@ class StateMachine {
         this.session = session;
     }
 
-    loadNextState() {
+    async loadNextState() {
         this.prevState = this.state;
-        if ((this.state == STATE.ROUND_1 || this.state == STATE.ROUND_2) && this.session.checkCoffeeTimeout()) 
+
+        if ((this.state === STATE.ROUND_1 || this.state === STATE.ROUND_2) && await this.session.checkCoffeeTimeout())
         {
             this.#activateCoffeeTimeout();
         }
         else {
             switch (this.state) {
                 case STATE.WAITING:
-                    this.#loadRound1();
+                    this.#loadRound1(this.coffeeUsed);
                     break;
 
                 case STATE.ROUND_1:
@@ -39,7 +42,8 @@ class StateMachine {
 
                 case STATE.ROUND_2:
                     this.#loadAdminChoice();
-                break;
+                    this.coffeeUsed = false;
+                    break;
 
                 case STATE.COFFEE_TIMEOUT:
                     if (this.prevState != STATE.ROUND_1 && this.prevState != STATE.ROUND_2) break;
@@ -76,28 +80,31 @@ class StateMachine {
                     this.session.featurePointer++;
 
                     // Empty the submits for round 1
-                    this.session.submits = [];
-
-                    // Reset everyone's status to waiting
-                    this.session.clients.forEach(client => client.status = 'waiting');
+                    this.#resetRoundData()
 
                     this.session.createFeatureObject();
-                    this.session.broadcast('load', { toLoad: this.session.state, data: this.session.featureData() });
+                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
                 break;
 
+                case STATE.END:
+                    this.session.broadcast('load', { toLoad: 'end', data: this.session.featureData() });
+                    break;
             }
         }
     }
 
-    #loadRound1() {
+    #loadRound1(coffeeUsed) {
+        this.#resetRoundData()
+
         this.state = STATE.ROUND_1;
-        this.session.createFeatureObject();
+        !coffeeUsed ? this.session.createFeatureObject() : ''; // Was coffee used in the previous round? Don't make another DB object key for this feature
         this.session.broadcast('load', { toLoad: 'round1', data: this.session.featureData() });
     }
+
     #loadRound2() {
         this.state = STATE.ROUND_2;
-        // Empty the submits for round 2
-        this.session.submits = [];
+
+        this.#resetRoundData()
 
         this.session.updateDBData()
             .then(response => {
@@ -106,35 +113,63 @@ class StateMachine {
                 this.session.broadcast('load', { toLoad: 'round2', data: this.session.featureData(), chats: this.session.dbData.features[this.session.featurePointer] });
             });
     }
+
     #loadAdminChoice()
     {
         this.state = STATE.ADMIN_CHOICE;
-        // Ask the admin to choose a memeber from list to add to the card
-        this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
-            this.session.admin.emit('admin', { event: 'choose', members });
-        }).catch(err => console.error(err));
+
+        // Ask the admin to choose a member from list to add to the card
+        this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id)
+            .then(members => {
+                this.session.admin.emit('admin', { event: 'choose', members });
+            }).catch(err => console.error(err));
     }
+
     #activateCoffeeTimeout()
     {
-        this.state = STATE.COFFEE_TIMEOUT;
+        // Which round did we come from before entering the coffee timer
+        let prevState   = this.state
+
+        // Set the session state to coffee during the timer
+        this.state      = STATE.COFFEE_TIMEOUT;
+
+        // Remember that we used coffee in this round to prevent new DB object key being created in round 1
+        this.coffeeUsed = true;
+
         // Ask all clients to load the timer popup
-        this.session.broadcast('load', { toLoad: 'timer' });
-        
-        let timeInSec    = 0;
-        let maxTimeInSec = this.session.coffee * 60; // Convert the minutes to seconds
-        let interval = setInterval(() => {
-            // Check if we should stop the interval
-            if (timeInSec >= maxTimeInSec) 
+        this.session.broadcast('load', { toLoad: 'timer', data : this.session.featureData()});
+
+        let seconds = 60;
+        let minutes = Math.floor((this.session.coffee * 60 - seconds) / 60)
+
+        let inter = setInterval(() => {
+
+            seconds--;
+
+            // Reset seconds
+            seconds === 0 && minutes > 0 ? (seconds = 60, minutes--) : '';
+
+            // If timer ends, end interval
+            if(seconds === 0 && minutes === 0)
             {
-                // Reload round1 or round2
+                // Set the state back to the round before the one we came from, so we can basically reload
+                this.state = prevState - 1;
+
+                clearInterval(inter);
                 this.loadNextState();
-                clearInterval(interval);
             }
 
-            // Increase the timer and send the time to all clients
-            timeInSec++;
-            currentSession.broadcast('sendTime', { currentTime: timeInSec });
-        }, 1000); // This interval will run every second
+            this.session.broadcast('sendTime', { minutes: minutes, seconds: seconds });
+        }, 100)
+    }
+
+    /**
+     * Reset the submits etc. when reloading a round so we can submit again
+     */
+    #resetRoundData()
+    {
+        this.session.submits = [];
+        this.session.clients.forEach(client => client.status = 'waiting');
     }
 }
 module.exports = {
