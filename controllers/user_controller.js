@@ -326,10 +326,10 @@ const authMicrosoft = (req, res) => {
 
     cca.acquireTokenByCode(tokenRequest)
         .then(response => {
-            console.log('Auth response: \n' + response);
-            res.status(200);
-            // TODO:
-            // res.Redirect terug naar de client
+            console.log('Auth response: \n', response);
+            // res.sendStatus(200);
+            // TODO: process data to mongo db
+            res.redirect('https://localhost:8080/');
         });
 }
 
