@@ -313,6 +313,11 @@ const loginMicrosoft = (req, res) => {
         });
 }
 const authMicrosoft = (req, res) => {
+    if (!req?.query?.code) {
+        res.sendStatus(500);
+        return;
+    }
+
     const tokenRequest = {
         code: req.query.code,
         scopes: ["user.read"],
