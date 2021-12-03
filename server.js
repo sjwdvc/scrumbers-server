@@ -41,7 +41,7 @@ app.use((req,res, next) => {
     switch(true)
     {
         // First visit to the app
-        case ['/api/user/login', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 :
+        case ['/api/user/login', '/api/user/login/microsoft', '/api/user/auth/microsoft', '/api/session/check', '/api/session/logout', '/api/user/register'].indexOf(req.originalUrl) >= 0 :
             next()
             break;
 
