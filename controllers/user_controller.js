@@ -294,7 +294,7 @@ const loginMicrosoft = (req, res) => {
         scopes: ["user.read"],
         // TODO:
         // Get server info (url/port)
-        redirectUri: "https://localhost:5555/auth/microsoft"
+        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
     }
     cca.getAuthCodeUrl(authUrlParams)
         .then(response => {
@@ -321,7 +321,7 @@ const authMicrosoft = (req, res) => {
     const tokenRequest = {
         code: req.query.code,
         scopes: ["user.read"],
-        redirectUri: "https://localhost:5555/auth/microsoft"
+        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
     };
 
     cca.acquireTokenByCode(tokenRequest)
