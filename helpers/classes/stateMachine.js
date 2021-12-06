@@ -1,5 +1,4 @@
 const Session = require('./session');
-const currentSession = require("./session")
 
 const STATE = {
     WAITING: 0,

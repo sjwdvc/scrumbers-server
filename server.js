@@ -38,9 +38,7 @@ app.use(express.static(__dirname + '/views/'));
 
 // Request middleware to verify JWT token on every request
 app.use((req,res, next) => {
-    console.log(req.originalUrl)
     let url = req.originalUrl.split('?')[0];
-    console.log(url);
     switch(true)
     {
         // First visit to the app

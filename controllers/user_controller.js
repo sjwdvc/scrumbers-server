@@ -8,7 +8,7 @@ const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
 const msal      = require('@azure/msal-node');
 
-const User = require('../models/user_schema')
+const { User, ACCOUNT_TYPE } = require('../models/user_schema')
 
 const register = (req, res) => {
     // Check if the user already exists in the database
@@ -326,10 +326,36 @@ const authMicrosoft = (req, res) => {
 
     cca.acquireTokenByCode(tokenRequest)
         .then(response => {
-            console.log('Auth response: \n', response);
-            // res.sendStatus(200);
-            // TODO: process data to mongo db
-            res.redirect('https://localhost:8080/');
+            // Insert database record
+            User.find({ email: response.account.username, accountType: ACCOUNT_TYPE.MICROSOFT })
+                .then(found => {
+                    // Check if we found an account
+                    if(found.length === 0)
+                    {
+                        // if not we create an account
+                        console.log(response);
+                        User.create({
+                            name        : response.account.name,
+                            email       : response.account.username,
+                            accountType : ACCOUNT_TYPE.MICROSOFT,
+                            password    : "none"
+                        }).then(acc => {
+                            res.redirect('https://localhost:8080/login?token=' + generateToken(acc));
+                        }).catch((err) => res.status(500).json({ error: err.message }));
+                    }
+                    else
+                    {
+                        // Else check if the found account is a miscrosoft account
+                        if (found[0].accountType != ACCOUNT_TYPE.MICROSOFT)
+                        {
+                            res.status(403).json({
+                                error: 'Can not login as Microsoft with a non Microsoft account'
+                            });
+                        }
+                        else
+                            res.redirect('https://localhost:8080/login?token=' + generateToken(found));
+                    }
+                });
         });
 }
 
