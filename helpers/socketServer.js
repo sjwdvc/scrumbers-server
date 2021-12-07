@@ -1,5 +1,5 @@
 const SessionObject = require('../models/session_schema');
-const User          = require('../models/user_schema');
+const { User }      = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const Session  = require('./classes/session');
 const { StateMachine, STATE }  = require('./classes/stateMachine');
