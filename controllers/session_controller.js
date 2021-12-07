@@ -10,7 +10,7 @@ const SessionObject = require('../models/session_schema')
 const check = (req, res) => {
     // Fix CORS issues
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin)
-
+    console.log(req.session.token);
     if(req.session.token === undefined)
         res.status(200).json({login: false})
     else

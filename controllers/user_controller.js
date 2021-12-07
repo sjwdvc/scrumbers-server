@@ -340,7 +340,8 @@ const authMicrosoft = (req, res) => {
                             accountType : ACCOUNT_TYPE.MICROSOFT,
                             password    : "none"
                         }).then(acc => {
-                            res.redirect('https://localhost:8080/login?token=' + generateToken(acc));
+                            req.session.token = generateToken(acc);
+                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
                         }).catch((err) => res.status(500).json({ error: err.message }));
                     }
                     else
@@ -353,7 +354,10 @@ const authMicrosoft = (req, res) => {
                             });
                         }
                         else
-                            res.redirect('https://localhost:8080/login?token=' + generateToken(found));
+                        {
+                            req.session.token = generateToken(found);
+                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                        }
                     }
                 });
         });
