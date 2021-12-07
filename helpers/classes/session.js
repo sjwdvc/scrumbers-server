@@ -109,17 +109,8 @@ class Session
 
         if(votes !== undefined) // Waiting state has no features yet
         {
-
-
-            // TODO Add round to query
-            console.log('round : ' + this.stateMachine.state)
-
             votes.forEach(vote => vote.value == -1 ? coffeeVotes++ : '');
-
             let half = Math.floor(votes.length / 2) !== 0 ? Math.floor(votes.length / 2) : 1
-
-            console.log(votes)
-
             return coffeeVotes >= half;
         }
         return false;

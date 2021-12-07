@@ -14,6 +14,7 @@ class StateMachine {
     state       = STATE.WAITING; // Start with waiting state
     prevState   = 0;
     coffeeUsed  = false;
+    number      = 0;
 
     /**
      * 
@@ -41,7 +42,7 @@ class StateMachine {
                     break;
 
                 case STATE.ROUND_2:
-                    this.#loadAdminChoice();
+                    this.loadAdminChoice();
                     this.coffeeUsed = false;
                     break;
 
@@ -51,25 +52,41 @@ class StateMachine {
                 break;
 
                 case STATE.ADMIN_CHOICE:
-                    // Add the final value to the feature card
-                    let number = 0;
-                    // switch (this.settings.gameRule)
-                    switch (true)
+
+                    switch (this.session.settings.assignMethod)
                     {
-                        default: // Lowest value
-                            let lowestValue = 100;
-                            this.session.dbData.features[this.session.featurePointer].votes.forEach(vote => {
-                                if (vote.value != null && vote.value < lowestValue)
-                                    lowestValue = vote.value;
-                            });
-                            this.session.setCardScore(lowestValue);
-                            number = lowestValue;
+                        case 'mostcommon':
+
+                            // Get the most common number from the votes
+                            this.number = this.session.dbData.features[this.session.featurePointer]
+                                .votes
+                                .filter(vote => vote.round === 2)
+                                .sort((a,b) => arr.filter(v => v===a).length - arr.filter(v => v===b).length)
+                                .pop();
+
+                            this.session.setCardScore(this.number);
                         break;
+
+                        case 'lowest': // Sets number to the lowest chosen value
+                            let lowestValue = 100;
+                            this.session.dbData.features[this.session.featurePointer]
+                                .votes
+                                .filter(vote => vote.round === 2) // Return all votes from the second round
+                                .forEach(vote => {
+                                    if (vote.value != null && vote.value < lowestValue) lowestValue = vote.value;
+                                });
+                            this.session.setCardScore(lowestValue);
+                            this.number = lowestValue;
+                        break;
+
+                        case 'admin':
+
+                            break;
                     }
 
                     // Send the results back to the client
                     this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
-                        this.session.broadcast('results', { number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer - 1] });
+                        this.session.broadcast('results', { number: this.number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer - 1] });
                         this.session.featureAssignedMember = null;
                     }).catch(err => console.error(err));
 
@@ -87,7 +104,7 @@ class StateMachine {
                 break;
 
                 case STATE.END:
-                    this.session.broadcast('load', { toLoad: 'end', data: this.session.featureData() });
+                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
                     break;
             }
         }
@@ -98,7 +115,7 @@ class StateMachine {
 
         this.state = STATE.ROUND_1;
         !coffeeUsed ? this.session.createFeatureObject() : ''; // Was coffee used in the previous round? Don't make another DB object key for this feature
-        this.session.broadcast('load', { toLoad: 'round1', data: this.session.featureData() });
+        this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
     }
 
     #loadRound2() {
@@ -110,18 +127,46 @@ class StateMachine {
             .then(response => {
                 this.session.dbData = response[0]
 
-                this.session.broadcast('load', { toLoad: 'round2', data: this.session.featureData(), chats: this.session.dbData.features[this.session.featurePointer] });
+                this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), chats: this.session.dbData.features[this.session.featurePointer] });
             });
     }
 
-    #loadAdminChoice()
+    loadAdminChoice()
     {
         this.state = STATE.ADMIN_CHOICE;
 
         // Ask the admin to choose a member from list to add to the card
         this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id)
             .then(members => {
-                this.session.admin.emit('admin', { event: 'choose', members });
+                switch(this.session.settings.assignMethod)
+                {
+                    case 'admin':
+                        // Select disinct numbers from votes
+                        let cards = this.session.dbData.features[this.session.featurePointer].votes
+                            .filter(vote => vote.round === 2)
+                            .filter((value, index, self) => self.indexOf(value) === index)
+
+                        this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: cards, data: this.session.featureData() });
+                    break;
+
+                    case 'mostcommon':
+                        // Create array of most common numbers
+                        let commoncards = this.session.dbData.features[this.session.featurePointer]
+                            .votes
+                            .filter(vote => vote.round === 2)
+                            .sort((a,b) => arr.filter(v => v===a).length - arr.filter(v => v===b).length)
+                            .pop();
+
+                        if(commoncards.length > 1)
+                        {
+                            this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards.value, data: this.session.featureData() });
+                        } else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
+                    break;
+
+                    default:
+                        this.session.admin.emit('admin', { event: 'choose', members : members, cards: undefined, data: this.session.featureData()});
+                    break;
+                }
             }).catch(err => console.error(err));
     }
 
