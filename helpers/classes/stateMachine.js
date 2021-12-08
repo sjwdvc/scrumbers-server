@@ -176,7 +176,7 @@ class StateMachine {
                     break;
 
                     default:
-                        this.session.admin.emit('admin', { event: 'choose', members : members, cards: undefined, data: this.session.featureData()});
+                        this.session.admin.emit('admin', { event: 'choose', members : members, cards: this.number, data: this.session.featureData()});
                     break;
                 }
             }).catch(err => console.error(err));

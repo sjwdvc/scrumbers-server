@@ -307,6 +307,9 @@ module.exports = function(io)
                                 user: client.name,
                             });
 
+                            currentSession.stateMachine.number = args.number
+
+
                             // Check if all clients have submitted a value
                             if (currentSession.submits.length == currentSession.clients.length)
                             {
@@ -338,7 +341,6 @@ module.exports = function(io)
                         }).catch(err => {
                             if (err?.response?.data == 'member is already on the card')
                             {
-
                                 currentSession.featureAssignedMember = args.member;
                                 currentSession.stateMachine.number = args.number;
 
