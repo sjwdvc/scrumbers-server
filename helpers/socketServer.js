@@ -67,6 +67,9 @@ module.exports = function(io)
                               
                                 // Put coffee time out length in session
                                 session.coffee = args.coffee;
+
+                                // Set settings for number assign method
+                                session.settings = args.settings
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
@@ -102,7 +105,6 @@ module.exports = function(io)
                     // If a session is found, continue
                     if (currentSession !== undefined)
                     {
-
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
                         client.name     = args.name;
@@ -131,8 +133,6 @@ module.exports = function(io)
                         if(!currentSession.clients.some(currentClient => currentClient.email === args.email))
                             currentSession.clients.push(client);
 
-
-
                         // If you're the admin and you're trying to reconnect with a different client. replace the old clients and the admin socket
                         else if(currentSession.admin.email === client.email)
                         {
@@ -153,12 +153,24 @@ module.exports = function(io)
 
                         switch(currentSession.stateMachine.state)
                         {
-                            case STATE.ROUND_2:
-                                client.emit('load', { toLoad: 'round2', data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                            case STATE.WAITING:
+                                client.emit('load', { toLoad: 0, data: currentSession.featureData() });
                                 break;
 
-                            default:
-                                client.emit('load', { toLoad: 'round1', data: currentSession.featureData() });
+                            case STATE.ROUND_1:
+                                client.emit('load', { toLoad: 1, data: currentSession.featureData() });
+                                break;
+
+                            case STATE.ROUND_2:
+                                client.emit('load', { toLoad: 2, data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                                break;
+
+                            case STATE.ADMIN_CHOICE:
+                                currentSession.stateMachine.loadAdminChoice()
+                                break;
+
+                            case STATE.END:
+                                client.emit('end', { toLoad: 5, data: currentSession.featureData() });
                                 break;
                         }
 
@@ -241,34 +253,65 @@ module.exports = function(io)
                         // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
 
-                        // Push the vote and chat message to the database
-                        SessionObject.updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
-                            $push:
-                            {
-                                'features.$.votes': {
-                                    //round: parseInt(currentSession.state[currentSession.state.length-1]),
-                                    user: client.uid,
-                                    value: args['number'],
-                                    sender: client.name,
-                                    round: currentSession.stateMachine.state
-                                },
-                                'features.$.chat': {
-                                    //round: parseInt(currentSession.state[currentSession.state.length-1]),
-                                    user: client.uid,
-                                    value: args.desc,
-                                    sender: client.name,
-                                    round: currentSession.stateMachine.state
-                                }
-                            }
-                        },
-                        {
-                            arrayFilters: [{ 'i': currentSession.featurePointer }],
-                            new: true
-                        }).then(() => {
+                        let submit;
 
+                        if(currentSession.stateMachine.coffeeUsed)
+                        {
+                            submit = SessionObject.updateOne({_id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
+                                $set : {
+                                    'features.$[index].votes.$[vote].value' : args.number,
+                                    'features.$[index].chat.$[chat].value' : args.desc,
+                                }
+                            }, {
+                                arrayFilters : [
+                                    {   'index._id'     : currentSession.dbData.features[currentSession.featurePointer]._id },
+                                    {
+                                        'vote._id'      : currentSession.dbData.features[currentSession.featurePointer].votes.filter(vote => vote.user.toString() == client.uid.toString())[currentSession.dbData.features[currentSession.featurePointer].votes.filter(vote => vote.user.toString() == client.uid.toString()).length - 1]._id
+                                    },
+                                    {
+                                        'chat._id'      : currentSession.dbData
+                                            .features[currentSession.featurePointer].chat.filter(chat => chat.user.toString() == client.uid.toString())[currentSession.dbData.features[currentSession.featurePointer].chat.filter(chat => chat.user.toString() == client.uid.toString()).length - 1]._id
+                                    }
+                                ],
+                                useFindAndModify: true,
+                                new: true,
+                                upsert: true
+                            })
+                        }
+                        else
+                        {
+                            submit = SessionObject
+                                .updateOne({ _id: currentSession.dbData._id, 'features._id': currentSession.dbData.features[currentSession.featurePointer]._id}, {
+                                     $push:
+                                         {
+                                             'features.$.votes': {
+                                                 //round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                                 user: client.uid,
+                                                 value: args['number'],
+                                                 sender: client.name,
+                                                 round: currentSession.stateMachine.state
+                                             },
+                                             'features.$.chat': {
+                                                 //round: parseInt(currentSession.state[currentSession.state.length-1]),
+                                                 user: client.uid,
+                                                 value: args.desc,
+                                                 sender: client.name,
+                                                 round: currentSession.stateMachine.state
+                                             }
+                                         }
+                                }, {
+                                    arrayFilters: [{ 'i': currentSession.featurePointer }],
+                                    new: true
+                                })
+                        }
+                        submit
+                        .then(() => {
                             currentSession.broadcast('submit', {
                                 user: client.name,
                             });
+
+                            currentSession.stateMachine.number = args.number
+
 
                             // Check if all clients have submitted a value
                             if (currentSession.submits.length == currentSession.clients.length)
@@ -276,38 +319,37 @@ module.exports = function(io)
                                 // Load the next state
                                 currentSession.stateMachine.loadNextState();
                             }
+
                         }).catch(err => console.error(err));
                     }
                 break;
 
-                case 'choose': 
+                case 'choose':
                     // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
-                    if (currentSession.stateMachine.state != STATE.ADMIN && client.id != currentSession.admin.id) return;
+                    if (currentSession.stateMachine.state != STATE.ADMIN_CHOICE && client.id != currentSession.admin.id) return;
 
                     // Check if we have recived a value
-                    if (!args.memberID) client.emit('error', { error: 'memberID not found in arguments' });
+                    if (!args.member) client.emit('error', { error: 'memberID not found in arguments' });
                     // Check if our given memberID is valid
-                    else if (!args.memberID.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
+                    else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
                     else 
                     {
                         // Add the given user to the card and load the next state
                         currentSession.trelloApi.addMemberToCard(
                             currentSession.backlog.cards[currentSession.featurePointer],
-                            args.memberID
+                            args.member
                         ).then(() => {
-                            currentSession.featureAssignedMember = args.memberID;
+                            currentSession.featureAssignedMember = args.member;
                             currentSession.stateMachine.loadNextState();
                         }).catch(err => {
                             if (err?.response?.data == 'member is already on the card')
                             {
-                                currentSession.featureAssignedMember = args.memberID;
-
+                                currentSession.featureAssignedMember = args.member;
+                                currentSession.stateMachine.number = args.number;
 
                                 // When the admin assigns the last user>card, check if there is a next feature, else end the session
                                 if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
-                                {
                                     currentSession.stateMachine.state = STATE.END;
-                                }
 
                                 currentSession.stateMachine.loadNextState();
                             }
