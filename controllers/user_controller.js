@@ -168,7 +168,8 @@ const deleteData = (req, res) => {
 const userData = (req, res) => {
 
     // Get user data from database
-    User.find({email: req.session.email}) 
+    console.log(req.session)
+    User.find({email: req.session.email})
     .then((data) => {
         res.status(200).json({
             name:       data[0].name || '',
@@ -333,14 +334,17 @@ const authMicrosoft = (req, res) => {
                     if(found.length === 0)
                     {
                         // if not we create an account
-                        console.log(response);
+                        console.log(response.account);
                         User.create({
                             name        : response.account.name,
                             email       : response.account.username,
                             accountType : ACCOUNT_TYPE.MICROSOFT,
                             password    : "none"
                         }).then(acc => {
+                            // Set session variables
                             req.session.token = generateToken(acc);
+                            req.session.name  = response.account.name;
+                            req.session.email = response.account.username;
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
                         }).catch((err) => res.status(500).json({ error: err.message }));
                     }
@@ -356,7 +360,10 @@ const authMicrosoft = (req, res) => {
                         else
                         {
                             req.session.token = generateToken(found);
+                            req.session.name  = response.account.name;
+                            req.session.email = response.account.username;
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                            console.log(req.session)
                         }
                     }
                 });
