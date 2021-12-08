@@ -74,7 +74,7 @@ class StateMachine {
                         break;
 
                         case 'admin':
-
+                            this.session.setCardScore(this.number);
                             break;
                     }
 
