@@ -336,14 +336,14 @@ const authMicrosoft = (req, res) => {
                         // if not we create an account
                         console.log(response.account);
                         User.create({
-                            name        : response.account.name,
+                            name        : response.account.name || response.account.username,
                             email       : response.account.username,
                             accountType : ACCOUNT_TYPE.MICROSOFT,
                             password    : "none"
                         }).then(acc => {
                             // Set session variables
                             req.session.token = generateToken(acc);
-                            req.session.name  = response.account.name;
+                            req.session.name  = response.account.name || response.account.username;
                             req.session.email = response.account.username;
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
                         }).catch((err) => res.status(500).json({ error: err.message }));
@@ -367,6 +367,8 @@ const authMicrosoft = (req, res) => {
                         }
                     }
                 });
+        }).catch(err => {
+            console.log("MicrosoftOAuthException: ", err);
         });
 }
 
