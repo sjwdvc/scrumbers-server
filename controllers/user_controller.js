@@ -168,7 +168,7 @@ const deleteData = (req, res) => {
 const userData = (req, res) => {
 
     // Get user data from database
-    User.find({email: req.session.email}) 
+    User.find({email: req.session.email})
     .then((data) => {
         res.status(200).json({
             name:       data[0].name || '',
@@ -329,20 +329,23 @@ const authMicrosoft = (req, res) => {
             // Insert database record
             User.find({ email: response.account.username, accountType: ACCOUNT_TYPE.MICROSOFT })
                 .then(found => {
-                    // Check if we found an account
+                    // Check if we found an account in our database
                     if(found.length === 0)
                     {
-                        // if not we create an account
-                        console.log(response);
+                        // if not we create an account in our database
                         User.create({
-                            name        : response.account.name,
+                            name        : response.account.name || response.account.username,
                             email       : response.account.username,
                             accountType : ACCOUNT_TYPE.MICROSOFT,
                             password    : "none"
                         }).then(acc => {
-                            req.session.token = generateToken(acc);
+                            // Set session variables
+                            req.session.token = generateToken([acc]);
+                            req.session.name  = response.account.name || response.account.username;
+                            req.session.email = response.account.username;
+
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
-                        }).catch((err) => res.status(500).json({ error: err.message }));
+                        }).catch(err => res.status(500).json({ when: 'creating user', error: err.message }));
                     }
                     else
                     {
@@ -356,10 +359,14 @@ const authMicrosoft = (req, res) => {
                         else
                         {
                             req.session.token = generateToken(found);
+                            req.session.name  = response.account.name;
+                            req.session.email = response.account.username;
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
                         }
                     }
                 });
+        }).catch(err => {
+            console.log("MicrosoftOAuthException: ", err);
         });
 }
 
