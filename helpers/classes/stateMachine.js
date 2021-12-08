@@ -167,12 +167,12 @@ class StateMachine {
                             return res;
                         }
 
-                        let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes.filter(vote => vote.round === 2).map(vote => vote.value))
-                        this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
+                        let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes
+                                             .filter(vote => vote.round === 2).map(vote => vote.value))
 
-                        // if(commoncards.length > 1)
-                        //     this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
-                        // else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
+                        if(commoncards.length > 1)
+                            this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
+                        else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
                     break;
 
                     default:
