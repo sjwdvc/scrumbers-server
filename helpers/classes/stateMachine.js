@@ -34,7 +34,7 @@ class StateMachine {
         else {
             switch (this.state) {
                 case STATE.WAITING:
-                    this.#loadRound1(this.coffeeUsed);
+                    this.#loadRound1();
                     break;
 
                 case STATE.ROUND_1:
@@ -56,25 +56,19 @@ class StateMachine {
                     switch (this.session.settings.assignMethod)
                     {
                         case 'mostcommon':
-
-                            // Get the most common number from the votes
-                            this.number = this.session.dbData.features[this.session.featurePointer]
-                                .votes
-                                .filter(vote => vote.round === 2)
-                                .sort((a,b) => arr.filter(v => v===a).length - arr.filter(v => v===b).length)
-                                .pop();
-
                             this.session.setCardScore(this.number);
                         break;
 
                         case 'lowest': // Sets number to the lowest chosen value
                             let lowestValue = 100;
+
                             this.session.dbData.features[this.session.featurePointer]
                                 .votes
                                 .filter(vote => vote.round === 2) // Return all votes from the second round
                                 .forEach(vote => {
                                     if (vote.value != null && vote.value < lowestValue) lowestValue = vote.value;
                                 });
+
                             this.session.setCardScore(lowestValue);
                             this.number = lowestValue;
                         break;
@@ -110,11 +104,11 @@ class StateMachine {
         }
     }
 
-    #loadRound1(coffeeUsed) {
+    #loadRound1() {
         this.#resetRoundData()
 
         this.state = STATE.ROUND_1;
-        !coffeeUsed ? this.session.createFeatureObject() : ''; // Was coffee used in the previous round? Don't make another DB object key for this feature
+        !this.coffeeUsed ? this.session.createFeatureObject() : ''; // Was coffee used in the previous round? Don't make another DB object key for this feature
         this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
     }
 
@@ -122,6 +116,8 @@ class StateMachine {
         this.state = STATE.ROUND_2;
 
         this.#resetRoundData()
+
+        this.coffeeUsed = false
 
         this.session.updateDBData()
             .then(response => {
@@ -145,22 +141,38 @@ class StateMachine {
                         let cards = this.session.dbData.features[this.session.featurePointer].votes
                             .filter(vote => vote.round === 2)
                             .filter((value, index, self) => self.indexOf(value) === index)
+                            .map(vote => vote.value)
 
                         this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: cards, data: this.session.featureData() });
                     break;
 
                     case 'mostcommon':
                         // Create array of most common numbers
-                        let commoncards = this.session.dbData.features[this.session.featurePointer]
-                            .votes
-                            .filter(vote => vote.round === 2)
-                            .sort((a,b) => arr.filter(v => v===a).length - arr.filter(v => v===b).length)
-                            .pop();
+                        const mostcommon = arr => {
+                            const count 	= {};
+                            let res 		= [];
 
-                        if(commoncards.length > 1)
-                        {
-                            this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards.value, data: this.session.featureData() });
-                        } else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
+                            arr.forEach(el => {
+                                count[el] = (count[el] || 0) + 1;
+                            });
+                            res = Object.keys(count).reduce((acc, val, ind) => {
+                                if (!ind || count[val] > count[acc[0]]) {
+                                    return [val];
+                                };
+                                if (count[val] === count[acc[0]]) {
+                                    acc.push(val);
+                                };
+                                return acc;
+                            }, []);
+                            return res;
+                        }
+
+                        let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes.filter(vote => vote.round === 2).map(vote => vote.value))
+                        this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
+
+                        // if(commoncards.length > 1)
+                        //     this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
+                        // else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
                     break;
 
                     default:

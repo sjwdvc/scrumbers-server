@@ -338,8 +338,8 @@ module.exports = function(io)
                         }).catch(err => {
                             if (err?.response?.data == 'member is already on the card')
                             {
-                                currentSession.featureAssignedMember = args.member;
 
+                                currentSession.featureAssignedMember = args.member;
                                 currentSession.stateMachine.number = args.number;
 
                                 // When the admin assigns the last user>card, check if there is a next feature, else end the session
