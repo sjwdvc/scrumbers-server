@@ -1,5 +1,5 @@
 const SessionObject = require('../models/session_schema');
-const User          = require('../models/user_schema');
+const { User }      = require('../models/user_schema');
 const { Types }     = require('mongoose');
 const Session  = require('./classes/session');
 const { StateMachine, STATE }  = require('./classes/stateMachine');
@@ -37,12 +37,7 @@ module.exports = function(io)
                         // Check if the url is a valid trello board
                         let trello = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
 
-                             
-                
-              
-
                         trello.getBoard(match[1]).then(board => {
-
                             // Set each client credentials
                             client.name     = args.name;
                             client.email    = args.email;
@@ -50,8 +45,6 @@ module.exports = function(io)
                             // Create session a key
                             let key = generateID();
 
-                            
-                            
                             User.find({ email: client.email }).then(data => {
                                 let session = new Session(client, key, data[0]._id);
                                 session.stateMachine = new StateMachine(session);
@@ -200,6 +193,16 @@ module.exports = function(io)
                     let users = [];
                     currentSession.clients.forEach(client => users.push({ name: client.name, status: client.status }));
                     currentSession.broadcast('leftSession', {data : {userLeft: client.name, users: users}});
+
+                    // Remove client from client list
+                    currentSession.clients = currentSession.clients.filter(c => c !== leavingClient)
+
+                    // Check if all the other users submitted a value
+                    if ((currentSession.stateMachine.state == STATE.ROUND_1 || currentSession.stateMachine.state == STATE.ROUND_2) && (currentSession.submits.length == currentSession.clients.length))
+                    {
+                        // Load the next state
+                        currentSession.stateMachine.loadNextState();
+                    }
                 break;
 
                 // Loads the session history data for the session history/lookback component
@@ -316,8 +319,8 @@ module.exports = function(io)
                                 // Load the next state
                                 currentSession.stateMachine.loadNextState();
                             }
-                        })
-                        .catch(err => console.error(err));
+
+                        }).catch(err => console.error(err));
                     }
                 break;
 

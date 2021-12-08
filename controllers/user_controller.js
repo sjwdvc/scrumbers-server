@@ -6,8 +6,9 @@ const fs        = require('fs');
 const bcrypt    = require('bcrypt');
 const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
+const msal      = require('@azure/msal-node');
 
-const User = require('../models/user_schema')
+const { User, ACCOUNT_TYPE } = require('../models/user_schema')
 
 const register = (req, res) => {
     // Check if the user already exists in the database
@@ -271,6 +272,97 @@ const login = (req, res) => {
         });
 }
 
+const cca = new msal.ConfidentialClientApplication({
+    auth: {
+        clientId:       process.env.MS_CLIENTID,
+        authority:      process.env.MS_AUTHORITY,
+        clientSecret:   process.env.MS_CLIENTSECRET,
+    },
+    system: {
+        loggerOptions: {
+            loggerCallback(logLevel, message, containsPii)
+            {
+                console.log(message);
+            },
+            piiLoggingEnabled: false,
+            logLevel: msal.LogLevel.Verbose
+        }
+    }
+});
+const loginMicrosoft = (req, res) => {
+    const authUrlParams = {
+        scopes: ["user.read"],
+        // TODO:
+        // Get server info (url/port)
+        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
+    }
+    cca.getAuthCodeUrl(authUrlParams)
+        .then(response => {
+            res.status(200).json(
+                {
+                    oauthUrl: response
+                }
+            );
+        }).catch(err => {
+            console.log(err);
+            res.status(500).json(
+                {
+                    error: 'Error when creating url'
+                }
+            )
+        });
+}
+const authMicrosoft = (req, res) => {
+    if (!req?.query?.code) {
+        res.sendStatus(500);
+        return;
+    }
+
+    const tokenRequest = {
+        code: req.query.code,
+        scopes: ["user.read"],
+        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
+    };
+
+    cca.acquireTokenByCode(tokenRequest)
+        .then(response => {
+            // Insert database record
+            User.find({ email: response.account.username, accountType: ACCOUNT_TYPE.MICROSOFT })
+                .then(found => {
+                    // Check if we found an account
+                    if(found.length === 0)
+                    {
+                        // if not we create an account
+                        console.log(response);
+                        User.create({
+                            name        : response.account.name,
+                            email       : response.account.username,
+                            accountType : ACCOUNT_TYPE.MICROSOFT,
+                            password    : "none"
+                        }).then(acc => {
+                            req.session.token = generateToken(acc);
+                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                        }).catch((err) => res.status(500).json({ error: err.message }));
+                    }
+                    else
+                    {
+                        // Else check if the found account is a miscrosoft account
+                        if (found[0].accountType != ACCOUNT_TYPE.MICROSOFT)
+                        {
+                            res.status(403).json({
+                                error: 'Can not login as Microsoft with a non Microsoft account'
+                            });
+                        }
+                        else
+                        {
+                            req.session.token = generateToken(found);
+                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                        }
+                    }
+                });
+        });
+}
+
 const generateToken = data => {
     // Secret is now stored in heroku config
     if (process.env.JWT_TOKEN_SECRET === "")
@@ -286,6 +378,8 @@ module.exports = {
     updateData,
     deleteData,
     login,
+    loginMicrosoft,
+    authMicrosoft,
     userData,
     updateUser
 };
