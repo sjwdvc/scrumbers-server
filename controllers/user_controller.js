@@ -168,7 +168,6 @@ const deleteData = (req, res) => {
 const userData = (req, res) => {
 
     // Get user data from database
-    console.log(req.session)
     User.find({email: req.session.email})
     .then((data) => {
         res.status(200).json({
@@ -330,11 +329,10 @@ const authMicrosoft = (req, res) => {
             // Insert database record
             User.find({ email: response.account.username, accountType: ACCOUNT_TYPE.MICROSOFT })
                 .then(found => {
-                    // Check if we found an account
+                    // Check if we found an account in our database
                     if(found.length === 0)
                     {
-                        // if not we create an account
-                        console.log(response.account);
+                        // if not we create an account in our database
                         User.create({
                             name        : response.account.name || response.account.username,
                             email       : response.account.username,
@@ -342,11 +340,12 @@ const authMicrosoft = (req, res) => {
                             password    : "none"
                         }).then(acc => {
                             // Set session variables
-                            req.session.token = generateToken(acc);
+                            req.session.token = generateToken([acc]);
                             req.session.name  = response.account.name || response.account.username;
                             req.session.email = response.account.username;
+
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
-                        }).catch((err) => res.status(500).json({ error: err.message }));
+                        }).catch(err => res.status(500).json({ when: 'creating user', error: err.message }));
                     }
                     else
                     {
@@ -363,7 +362,6 @@ const authMicrosoft = (req, res) => {
                             req.session.name  = response.account.name;
                             req.session.email = response.account.username;
                             res.redirect('https://localhost:8080/login?token=' + req.session.token);
-                            console.log(req.session)
                         }
                     }
                 });
