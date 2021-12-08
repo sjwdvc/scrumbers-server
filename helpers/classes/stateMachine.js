@@ -172,7 +172,7 @@ class StateMachine {
 
                         if(commoncards.length > 1)
                             this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
-                        else this.session.admin.emit('admin', { event: 'choose', members : members, cards: [], data: this.session.featureData()});
+                        else this.session.admin.emit('admin', { event: 'choose', members : members, cards: commoncards, data: this.session.featureData()});
                     break;
 
                     default:
