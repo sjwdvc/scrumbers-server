@@ -24,8 +24,6 @@ class StateMachine {
     }
 
     async loadNextState() {
-        this.prevState = this.state;
-
         if ((this.state === STATE.ROUND_1 || this.state === STATE.ROUND_2) && await this.session.checkCoffeeTimeout())
         {
             this.#activateCoffeeTimeout();
@@ -33,25 +31,24 @@ class StateMachine {
         else {
             switch (this.state) {
                 case STATE.WAITING:
-                    this.#loadRound1();
+                    this.loadRound1();
                     break;
 
                 case STATE.ROUND_1:
-                    this.#loadRound2();
+                    this.coffeeUsed = false;
+                    this.loadRound2();
                     break;
 
                 case STATE.ROUND_2:
                     this.loadAdminChoice();
-                    this.coffeeUsed = false;
                     break;
 
                 case STATE.COFFEE_TIMEOUT:
                     if (this.prevState != STATE.ROUND_1 && this.prevState != STATE.ROUND_2) break;
-                    this['#loadRound' + this.prevState]();
+                    this['loadRound' + this.prevState]();
                 break;
 
                 case STATE.ADMIN_CHOICE:
-
                     switch (this.session.settings.assignMethod)
                     {
                         case 'mostcommon':
@@ -90,7 +87,10 @@ class StateMachine {
                     this.session.featurePointer++;
 
                     // Empty the submits for round 1
-                    this.#resetRoundData()
+                    this.#resetRoundData();
+
+                    // No coffee used
+                    this.coffeeUsed = false;
 
                     this.session.createFeatureObject();
                     this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
@@ -100,10 +100,11 @@ class StateMachine {
                     this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
                     break;
             }
+            this.prevState = this.state;
         }
     }
 
-    #loadRound1() {
+    loadRound1() {
         this.#resetRoundData()
 
         this.state = STATE.ROUND_1;
@@ -111,7 +112,7 @@ class StateMachine {
         this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
     }
 
-    #loadRound2() {
+    loadRound2() {
         this.state = STATE.ROUND_2;
 
         this.#resetRoundData()
@@ -208,11 +209,8 @@ class StateMachine {
             // If timer ends, end interval
             if(seconds === 0 && minutes === 0)
             {
-                // Set the state back to the round before the one we came from, so we can basically reload
-                this.state = prevState - 1;
-
-                clearInterval(inter);
                 this.loadNextState();
+                clearInterval(inter);
             }
 
             this.session.broadcast('sendTime', { minutes: minutes, seconds: seconds });
