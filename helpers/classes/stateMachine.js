@@ -117,6 +117,8 @@ class StateMachine {
 
         this.#resetRoundData()
 
+        this.coffeeUsed = false
+
         this.session.updateDBData()
             .then(response => {
                 this.session.dbData = response[0]
