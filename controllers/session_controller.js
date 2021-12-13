@@ -3,14 +3,13 @@
  * Checks wether you are logged in or not
  */
 
-const User = require('../models/user_schema')
+const { User } = require('../models/user_schema')
 const SessionObject = require('../models/session_schema')
 
 
 const check = (req, res) => {
     // Fix CORS issues
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin)
-
     if(req.session.token === undefined)
         res.status(200).json({login: false})
     else

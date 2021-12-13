@@ -1,5 +1,8 @@
 const { Schema, model } = require('mongoose');
-
+const ACCOUNT_TYPE = {
+    DEFAULT     : 0,
+    MICROSOFT   : 1
+}
 const userSchema = new Schema(
     {
         name : {
@@ -9,6 +12,10 @@ const userSchema = new Schema(
         email : {
             type : String,
             required : [true, 'email field is required'],
+        },
+        accountType : {
+            type : Number,
+            default: ACCOUNT_TYPE.DEFAULT
         },
         password : {
             type : String,
@@ -26,4 +33,7 @@ const userSchema = new Schema(
     {timestamps : true},
 );
 
-module.exports = model('users', userSchema);
+module.exports = { 
+    User: model('users', userSchema),
+    ACCOUNT_TYPE
+};

@@ -6,8 +6,9 @@ const fs        = require('fs');
 const bcrypt    = require('bcrypt');
 const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
+const msal      = require('@azure/msal-node');
 
-const User = require('../models/user_schema')
+const { User, ACCOUNT_TYPE } = require('../models/user_schema')
 
 const register = (req, res) => {
     // Check if the user already exists in the database
@@ -167,7 +168,7 @@ const deleteData = (req, res) => {
 const userData = (req, res) => {
 
     // Get user data from database
-    User.find({email: req.session.email}) 
+    User.find({email: req.session.email})
     .then((data) => {
         res.status(200).json({
             name:       data[0].name || '',
@@ -271,6 +272,106 @@ const login = (req, res) => {
         });
 }
 
+const cca = new msal.ConfidentialClientApplication({
+    auth: {
+        clientId:       process.env.MS_CLIENTID,
+        authority:      process.env.MS_AUTHORITY,
+        clientSecret:   process.env.MS_CLIENTSECRET,
+    },
+    system: {
+        loggerOptions: {
+            loggerCallback(logLevel, message, containsPii)
+            {
+                console.log(message);
+            },
+            piiLoggingEnabled: false,
+            logLevel: msal.LogLevel.Verbose
+        }
+    }
+});
+const loginMicrosoft = (req, res) => {
+    const authUrlParams = {
+        scopes: ["user.read"],
+        // TODO:
+        // Get server info (url/port)
+        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
+    }
+    cca.getAuthCodeUrl(authUrlParams)
+        .then(response => {
+            res.status(200).json(
+                {
+                    oauthUrl: response
+                }
+            );
+        }).catch(err => {
+            console.log(err);
+            res.status(500).json(
+                {
+                    error: 'Error when creating url'
+                }
+            )
+        });
+}
+const authMicrosoft = (req, res) => {
+    if (!req?.query?.code) {
+        res.sendStatus(500);
+        return;
+    }
+
+    const HOST = req.hostname;
+    const USE_PORT = HOST == 'localhost';
+
+    const tokenRequest = {
+        code: req.query.code,
+        scopes: ["user.read"],
+        redirectUri: `https://${HOST}${ USE_PORT ? ':5555' : '' }/api/user/auth/microsoft`
+    };
+
+    cca.acquireTokenByCode(tokenRequest)
+        .then(response => {
+            // Insert database record
+            User.find({ email: response.account.username, accountType: ACCOUNT_TYPE.MICROSOFT })
+                .then(found => {
+                    // Check if we found an account in our database
+                    if(found.length === 0)
+                    {
+                        // if not we create an account in our database
+                        User.create({
+                            name        : response.account.name || response.account.username,
+                            email       : response.account.username,
+                            accountType : ACCOUNT_TYPE.MICROSOFT,
+                            password    : "none"
+                        }).then(acc => {
+                            // Set session variables
+                            req.session.token = generateToken([acc]);
+                            req.session.name  = response.account.name || response.account.username;
+                            req.session.email = response.account.username;
+                            res.redirect(`https://${HOST.includes('-server') ? HOST.replace('-server', '-client') : HOST}${ USE_PORT ? ':8080' : '' }/login?token=${req.session.token}`);
+                        }).catch(err => res.status(500).json({ when: 'creating user', error: err.message }));
+                    }
+                    else
+                    {
+                        // Else check if the found account is a miscrosoft account
+                        if (found[0].accountType != ACCOUNT_TYPE.MICROSOFT)
+                        {
+                            res.status(403).json({
+                                error: 'Can not login as Microsoft with a non Microsoft account'
+                            });
+                        }
+                        else
+                        {
+                            req.session.token = generateToken(found);
+                            req.session.name  = response.account.name;
+                            req.session.email = response.account.username;
+                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                        }
+                    }
+                });
+        }).catch(err => {
+            console.log("MicrosoftOAuthException: ", err);
+        });
+}
+
 const generateToken = data => {
     // Secret is now stored in heroku config
     if (process.env.JWT_TOKEN_SECRET === "")
@@ -286,6 +387,8 @@ module.exports = {
     updateData,
     deleteData,
     login,
+    loginMicrosoft,
+    authMicrosoft,
     userData,
     updateUser
 };
