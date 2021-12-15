@@ -74,14 +74,15 @@ module.exports = function(io)
                                 // Push to active sessions
                                 this.activeSessions.push(session);
 
-                                trello.getListByName(board.id, "backlog")
+
+                                trello.getListByName(board.id, args.settings.board)
                                     .then(backlog => {
                                         session.backlog = backlog;
 
                                         trello.getCardsFromList(session.backlog.id)
                                             .then(cards => {
                                                 session.backlog.cards = cards;
-                                            
+
                                                 // Return the session key to front end
                                                 client.emit('createRoom', {key: key});
                                             })
@@ -114,7 +115,7 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
-           
+
                             // Add player to players array in session database if not done yet
                             SessionObject
                                 .find({'_id' : Types.ObjectId(currentSession.dbData._id), 'players.email' : args.email})
@@ -176,6 +177,20 @@ module.exports = function(io)
 
                     } else client.emit('undefinedSession');
                 break;
+
+                case 'checkURL':
+                    let trellodata  = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0]
+                    let trello      = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
+
+                    if(trellodata !== undefined) {
+                        trello.getLists(trellodata[1]).then(r => {
+                            client.emit('checkURL', r.map(list => {
+                                return {content : list.name, value : list.name}
+                            }));
+                        })
+                    } else client.emit('urlError', {error: "Invalid Trello board"});
+
+            break;
 
                 case 'start':
                     this.activeSessions.find(session => session.key == args.key)?.start();
