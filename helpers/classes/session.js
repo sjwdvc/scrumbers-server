@@ -110,8 +110,7 @@ class Session
         if(votes !== undefined) // Waiting state has no features yet
         {
             votes.forEach(vote => vote.value == -1 ? coffeeVotes++ : '');
-            let half = Math.floor(votes.length / 2) !== 0 ? Math.round(votes.length / 2) : 1
-            return coffeeVotes >= half;
+            return coffeeVotes >= (votes.length / 2);
         }
         return false;
     }
