@@ -29,6 +29,10 @@ const userSchema = new Schema(
             type : String,
             required : false,
         },
+        lastPasswordReset: {
+            type: Date,
+            require: false,
+        },
     },
     {timestamps : true},
 );
