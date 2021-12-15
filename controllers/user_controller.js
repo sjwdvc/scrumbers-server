@@ -318,13 +318,13 @@ const authMicrosoft = (req, res) => {
         return;
     }
 
-    const HOST = req.hostname;
-    const USE_PORT = HOST == 'localhost';
+    const HOST = req.get('host');
+    const IS_LOCAL = HOST == 'localhost';
 
     const tokenRequest = {
         code: req.query.code,
         scopes: ["user.read"],
-        redirectUri: `https://${HOST}${ USE_PORT ? ':5555' : '' }/api/user/auth/microsoft`
+        redirectUri: `${req.protocol}://${HOST}${ IS_LOCAL ? ':5555' : '' }/api/user/auth/microsoft`
     };
 
     cca.acquireTokenByCode(tokenRequest)
@@ -346,7 +346,7 @@ const authMicrosoft = (req, res) => {
                             req.session.token = generateToken([acc]);
                             req.session.name  = response.account.name || response.account.username;
                             req.session.email = response.account.username;
-                            res.redirect(`https://${HOST.includes('-server') ? HOST.replace('-server', '-client') : HOST}${ USE_PORT ? ':8080' : '' }/login?token=${req.session.token}`);
+                            res.redirect(`https://${HOST.includes('-server') ? HOST.replace('-server', '-client') : HOST}${ IS_LOCAL ? ':8080' : '' }/login?token=${req.session.token}`);
                         }).catch(err => res.status(500).json({ when: 'creating user', error: err.message }));
                     }
                     else
