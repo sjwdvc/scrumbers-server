@@ -31,7 +31,7 @@ const userSchema = new Schema(
         },
         lastPasswordReset: {
             type: Date,
-            require: false,
+            required: false,
         },
     },
     {timestamps : true},
