@@ -123,7 +123,6 @@ class Session
     featureData()
     {
         let feature = this.backlog.cards[this.featurePointer];
-
         let users = []
         this.clients.forEach(client => {
             users.push({
@@ -131,13 +130,15 @@ class Session
                 status  : client.status
             })
         })
-
         return {
             // Name of the feature
             name            : feature.name,
 
             // Description of the feature
             desc            : feature.desc,
+
+            // Attachments
+            attachments     : feature.attachments,
 
             // Checklists of the feature
             checklists      : feature.checklists,
