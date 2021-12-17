@@ -189,8 +189,7 @@ module.exports = function(io)
                             }));
                         })
                     } else client.emit('urlError', {error: "Invalid Trello board"});
-
-            break;
+                break;
 
                 case 'start':
                     this.activeSessions.find(session => session.key == args.key)?.start();
@@ -417,5 +416,17 @@ module.exports = function(io)
                     break;
             }
         });
+
+        client.on('profile', args => {
+            switch (args.event)
+            {
+                case 'loadCardTemplates':
+                    User.find({email : args.email})
+                        .then(data => {
+                            client.emit('loadCardTemplates', data[0]['templates'])
+                        })
+                    break;
+            }
+        })
     });
 }
