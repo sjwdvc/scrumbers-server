@@ -79,7 +79,7 @@ module.exports = function(io)
                                     .then(backlog => {
                                         session.backlog = backlog;
 
-                                        trello.getCardsFromList(session.backlog.id)
+                                        trello.getCardsFromList(session.backlog.id, true)
                                             .then(cards => {
                                                 session.backlog.cards = cards;
 

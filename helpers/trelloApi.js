@@ -76,6 +76,7 @@ class TrelloApi
             }).catch(err => reject(err));
         });
     }
+    
     /**
      * 
      * @param {string} boardID 
@@ -103,7 +104,7 @@ class TrelloApi
      * @param {string} listID 
      * @returns {Promise<Array<Card>>}
      */
-    getCardsFromList(listID)
+    getCardsFromList(listID, loadAttachments)
     {
         let url = `${this.baseUrl}/lists/${listID}/cards?key=${this.key}&token=${this.token}&checklists=all`;
         return new Promise((resolve, reject) => {
@@ -113,9 +114,29 @@ class TrelloApi
             }).then(res => {
                 let cards = [];
                 res.data.forEach(card => {
-                    cards.push(new Card(card));
+                    let result = new Card(card);
+                    // Check if we should load attachments for this card
+                    if (loadAttachments)
+                        this.getAttachmentsFormCard(result.id).then(attachments => {
+                            result.attachments = attachments;
+                        }).catch(err => console.timeStamp(err));
+                    cards.push(result);
                 });
                 resolve(cards);
+            }).catch(err => reject(err));
+        });
+    }
+
+
+    getAttachmentsFormCard(cardID)
+    {
+        let url = `${this.baseUrl}/cards/${cardID}/attachments?key=${this.key}&token=${this.token}`;
+        return new Promise((resolve, reject) => {
+            axios({
+                method: 'GET',
+                url
+            }).then(res => {
+                resolve(res.data);
             }).catch(err => reject(err));
         });
     }
@@ -225,6 +246,7 @@ class Card
         this.labels = data.labels;
         this.isSubscribed = data.subscribed;
         this.url = data.url;
+        this.attachments = null;
     }
 }
 
