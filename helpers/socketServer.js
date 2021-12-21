@@ -70,10 +70,11 @@ module.exports = function(io)
 
                                 // Set settings for number assign method
                                 session.settings = args.settings
+
+                                session.template = args.cardtemplate
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
-
 
                                 trello.getListByName(board.id, args.settings.board)
                                     .then(backlog => {
@@ -155,15 +156,15 @@ module.exports = function(io)
                         switch(currentSession.stateMachine.state)
                         {
                             case STATE.WAITING:
-                                client.emit('load', { toLoad: 0, data: currentSession.featureData() });
+                                client.emit('load', { toLoad: 0, data: currentSession.featureData(), template : currentSession.template });
                                 break;
 
                             case STATE.ROUND_1:
-                                client.emit('load', { toLoad: 1, data: currentSession.featureData() });
+                                client.emit('load', { toLoad: 1, data: currentSession.featureData(), template : currentSession.template });
                                 break;
 
                             case STATE.ROUND_2:
-                                client.emit('load', { toLoad: 2, data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                                client.emit('load', { toLoad: 2, data: currentSession.featureData(), template : currentSession.template, chats: currentSession.dbData.features[currentSession.featurePointer] });
                                 break;
 
                             case STATE.ADMIN_CHOICE:
