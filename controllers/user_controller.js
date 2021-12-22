@@ -116,6 +116,83 @@ const register = (req, res) => {
 
 };
 
+const updatePassword = (req, res) => {
+    // validate password
+
+    // If password is not 8 characters
+    if (req.body.password.length < 8) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 8 characters',
+                    field: 'password'
+                }
+            )
+    }
+    // If password doesn't include a capital letter
+    else if (!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 1 capital letter',
+                    field: 'password'
+                }
+            )
+    }
+
+    // If password doesn't include a number
+    else if (!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 1 number',
+                    field: 'password',
+                }
+            )
+    }
+
+
+    else if (Object.values(req.body).some(value => harms.test(value))) {
+        res.json
+            ({
+                error: 'Some characters are not allowed',
+                field: Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+            })
+    } else {
+        User.find({ email: req.session.email })
+            .then((data) => {
+
+                // check if new password is same as old password
+                bcrypt.compare(req.body.password, data[0].password)
+                    .then(result => {
+                        if (result) {
+                            res.json
+                                (
+                                    {
+                                        error: 'New password cannot be same as old password',
+                                        field: 'password',
+                                    }
+                                );
+                        } else {
+                            bcrypt.hash(req.body.password, 10)
+                                .then(passwdHash => {
+
+                                    console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
+
+                                    User.updateOne({ email: req.session.email }, { password: passwdHash }, { upsert: true }, (err, res) => console.log(err, res))
+                                        .catch((error) => {
+                                            console.log(error);
+                                        }).then(() => {
+                                            res.status(200).json({ changed: true });
+                                        });
+                                });
+                        }
+                    });
+
+            }).catch(err => res.status(500).json({ error: err.message }))
+    }
+};
+
 const readData = (req, res) => {
     User.find()
         .then((data) => {
@@ -175,7 +252,7 @@ const userData = (req, res) => {
             email:      data[0].email || '',
             age:        data[0].age || 0,
             function:   data[0].function || ''
-                             });
+        });
     })
 };
 
@@ -408,5 +485,6 @@ module.exports = {
     loginMicrosoft,
     authMicrosoft,
     userData,
-    updateUser
+    updateUser,
+    updatePassword
 };
