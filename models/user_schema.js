@@ -7,7 +7,7 @@ const ACCOUNT_TYPE = {
 const template = new Schema(
     {
         cards : Array,
-        title: String
+        title : String
     }
 )
 

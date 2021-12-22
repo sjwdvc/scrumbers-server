@@ -418,15 +418,35 @@ module.exports = function(io)
             }
         });
 
-        client.on('profile', args => {
+        client.on('templates', args => {
             switch (args.event)
             {
-                case 'loadCardTemplates':
+                case 'load':
                     User.find({email : args.email})
                         .then(data => {
-                            client.emit('loadCardTemplates', data[0]['templates'])
+                            client.emit('templates:load', data[0]['templates'])
                         })
                     break;
+
+                case 'save':
+                    User.updateOne({"email" : args.email}, {
+                        "$push":
+                            {
+                                "templates":
+                                    {
+                                        "title"   : args.template.name,
+                                        "cards"   : args.template.cards
+                                    }
+                            }
+                    })
+                    .then(data => {
+                        console.log(data)
+                    })
+                    .catch(e => {
+                        console.log(e)
+                    })
+
+                break;
             }
         })
     });
