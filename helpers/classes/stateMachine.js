@@ -93,11 +93,11 @@ class StateMachine {
                     this.coffeeUsed = false;
 
                     this.session.createFeatureObject();
-                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
+                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
                 break;
 
                 case STATE.END:
-                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
+                    this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
                     break;
             }
             this.prevState = this.state;
@@ -109,7 +109,7 @@ class StateMachine {
 
         this.state = STATE.ROUND_1;
         !this.coffeeUsed ? this.session.createFeatureObject() : ''; // Was coffee used in the previous round? Don't make another DB object key for this feature
-        this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData() });
+        this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
     }
 
     loadRound2() {
@@ -123,7 +123,7 @@ class StateMachine {
             .then(response => {
                 this.session.dbData = response[0]
 
-                this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), chats: this.session.dbData.features[this.session.featurePointer] });
+                this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template, chats: this.session.dbData.features[this.session.featurePointer] });
             });
     }
 
