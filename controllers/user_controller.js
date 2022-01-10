@@ -179,7 +179,14 @@ const updatePassword = (req, res) => {
 
                                     console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
 
-                                    User.updateOne({ email: req.session.email }, { password: passwdHash }, { upsert: true }, (err, res) => console.log(err, res))
+                                    User.updateOne({
+                                        email: req.session.email
+                                    }, {
+                                        password: passwdHash,
+                                        lastPasswordReset: new Date()
+                                    }, {
+                                        upsert: true
+                                    }, (err, res) => console.log(err, res))
                                         .catch((error) => {
                                             console.log(error);
                                         }).then(() => {
@@ -351,13 +358,27 @@ const login = (req, res) => {
         });
 }
 
+/**
+ * Function to determine if user's password is older than 2 month,
+ * so we can tell the user to change their password.
+ * @param {*} data
+ * @returns
+*/
 const hasOldPassword = (data) => {
+    // if account type is microsoft
+    if (typeof data.accountType !== 'undefined') {
+        if (data.accountType === ACCOUNT_TYPE.MICROSOFT) {
+            return false;
+        }
+    }
+
     // if no lassPasswordReset of undefined, set it to current datetime
     if (data.lastPasswordReset == undefined) {
         User.updateOne({ email: data.email }, { lastPasswordReset: new Date() }, { upsert: true }, (err, res) => console.log(err, res))
         return false;
     }
 
+    // get date, 2 months ago
     let twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
