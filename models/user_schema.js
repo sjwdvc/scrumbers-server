@@ -3,6 +3,14 @@ const ACCOUNT_TYPE = {
     DEFAULT     : 0,
     MICROSOFT   : 1
 }
+
+const template = new Schema(
+    {
+        cards : Array,
+        title : String
+    }
+)
+
 const userSchema = new Schema(
     {
         name : {
@@ -33,6 +41,7 @@ const userSchema = new Schema(
             type: Date,
             required: false,
         },
+        templates : [template]
     },
     {timestamps : true},
 );

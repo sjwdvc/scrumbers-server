@@ -57,13 +57,23 @@ app.use((req,res, next) => {
 app.use('/api', require('./routes/api'));
 
 if(process.env.PRODUCTION_CONFIG)
-{
+{  
+    // Set host config
+    module.exports.hostname     = "scrumbers-server.herokuapp.com";
+    module.exports.clienthost   = "scrumbers-client.herokuapp.com";
+
+    // Create server
     const server    = app.listen(port)
     const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
     require('./helpers/socketServer')(io);
 }
 else
 {
+    // Set default host config
+    module.exports.hostname     = 'localhost:' + port;
+    module.exports.clienthost   = 'localhost:8080';
+    
+    // Create server
     const https     = require('https');
     const server    = https.createServer({key: fs.readFileSync('./localhost-key.pem'), cert: fs.readFileSync('./localhost.pem'),}, app);
     const io        = require('socket.io')(server, {cors: {origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"], credentials: true}})
@@ -72,4 +82,4 @@ else
 }
 
 console.log(`Listening On https://localhost:${port}/api`);
-module.exports = app;
+module.exports.app = app;

@@ -70,18 +70,20 @@ module.exports = function(io)
 
                                 // Set settings for number assign method
                                 session.settings = args.settings
+
+                                session.template = args.cardtemplate
     
                                 // Push to active sessions
                                 this.activeSessions.push(session);
 
-                                trello.getListByName(board.id, "backlog")
+                                trello.getListByName(board.id, args.settings.board)
                                     .then(backlog => {
                                         session.backlog = backlog;
 
-                                        trello.getCardsFromList(session.backlog.id)
+                                        trello.getCardsFromList(session.backlog.id, true)
                                             .then(cards => {
                                                 session.backlog.cards = cards;
-                                            
+
                                                 // Return the session key to front end
                                                 client.emit('createRoom', {key: key});
                                             })
@@ -114,7 +116,7 @@ module.exports = function(io)
 
                         User.find({ email: args.email }).then(data => {
                             client.uid = Types.ObjectId(data[0]._id)._id;
-           
+
                             // Add player to players array in session database if not done yet
                             SessionObject
                                 .find({'_id' : Types.ObjectId(currentSession.dbData._id), 'players.email' : args.email})
@@ -154,15 +156,15 @@ module.exports = function(io)
                         switch(currentSession.stateMachine.state)
                         {
                             case STATE.WAITING:
-                                client.emit('load', { toLoad: 0, data: currentSession.featureData() });
+                                client.emit('load', { toLoad: 0, data: currentSession.featureData(), template : currentSession.template });
                                 break;
 
                             case STATE.ROUND_1:
-                                client.emit('load', { toLoad: 1, data: currentSession.featureData() });
+                                client.emit('load', { toLoad: 1, data: currentSession.featureData(), template : currentSession.template });
                                 break;
 
                             case STATE.ROUND_2:
-                                client.emit('load', { toLoad: 2, data: currentSession.featureData(), chats: currentSession.dbData.features[currentSession.featurePointer] });
+                                client.emit('load', { toLoad: 2, data: currentSession.featureData(), template : currentSession.template, chats: currentSession.dbData.features[currentSession.featurePointer] });
                                 break;
 
                             case STATE.ADMIN_CHOICE:
@@ -175,6 +177,19 @@ module.exports = function(io)
                         }
 
                     } else client.emit('undefinedSession');
+                break;
+
+                case 'checkURL':
+                    let trellodata  = [...args.url.matchAll(/https:\/\/trello\.com\/b\/(.*)\/(.*)/g)][0]
+                    let trello      = new TrelloApi('c6f2658e8bbe5ac486d18c13e49f1abb', args.token);
+
+                    if(trellodata !== undefined) {
+                        trello.getLists(trellodata[1]).then(r => {
+                            client.emit('checkURL', r.map(list => {
+                                return {content : list.name, value : list.name}
+                            }));
+                        })
+                    } else client.emit('urlError', {error: "Invalid Trello board"});
                 break;
 
                 case 'start':
@@ -402,5 +417,37 @@ module.exports = function(io)
                     break;
             }
         });
+
+        client.on('templates', args => {
+            switch (args.event)
+            {
+                case 'load':
+                    User.find({email : args.email})
+                        .then(data => {
+                            client.emit('templates:load', data[0]['templates'])
+                        })
+                    break;
+
+                case 'save':
+                    User.updateOne({"email" : args.email}, {
+                        "$push":
+                            {
+                                "templates":
+                                    {
+                                        "title"   : args.template.name,
+                                        "cards"   : args.template.cards
+                                    }
+                            }
+                    })
+                    .then(data => {
+                        console.log(data)
+                    })
+                    .catch(e => {
+                        console.log(e)
+                    })
+
+                break;
+            }
+        })
     });
 }

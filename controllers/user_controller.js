@@ -7,7 +7,7 @@ const bcrypt    = require('bcrypt');
 const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
 const msal      = require('@azure/msal-node');
-
+const server    = require('../server');
 const { User, ACCOUNT_TYPE } = require('../models/user_schema')
 
 const register = (req, res) => {
@@ -410,8 +410,9 @@ const loginMicrosoft = (req, res) => {
         scopes: ["user.read"],
         // TODO:
         // Get server info (url/port)
-        redirectUri: "https://localhost:5555/api/user/auth/microsoft"
+        redirectUri: `${req.protocol}://${server.hostname}/api/user/auth/microsoft`
     }
+    console.log("Redirect url: ", `${req.protocol}://${server.hostname}/api/user/auth/microsoft`)
     cca.getAuthCodeUrl(authUrlParams)
         .then(response => {
             res.status(200).json(
@@ -433,14 +434,11 @@ const authMicrosoft = (req, res) => {
         res.sendStatus(500);
         return;
     }
-
-    const HOST = req.hostname;
-    const USE_PORT = HOST == 'localhost';
-
+    console.log("Redirect url: ", `${req.protocol}://${server.hostname}/api/user/auth/microsoft`)
     const tokenRequest = {
         code: req.query.code,
         scopes: ["user.read"],
-        redirectUri: `https://${HOST}${ USE_PORT ? ':5555' : '' }/api/user/auth/microsoft`
+        redirectUri: `${req.protocol}://${server.hostname}/api/user/auth/microsoft`
     };
 
     cca.acquireTokenByCode(tokenRequest)
@@ -462,7 +460,7 @@ const authMicrosoft = (req, res) => {
                             req.session.token = generateToken([acc]);
                             req.session.name  = response.account.name || response.account.username;
                             req.session.email = response.account.username;
-                            res.redirect(`https://${HOST.includes('-server') ? HOST.replace('-server', '-client') : HOST}${ USE_PORT ? ':8080' : '' }/login?token=${req.session.token}`);
+                            res.redirect(`${req.protocol}://${server.clienthost}/login?token=${req.session.token}`);
                         }).catch(err => res.status(500).json({ when: 'creating user', error: err.message }));
                     }
                     else
@@ -479,7 +477,7 @@ const authMicrosoft = (req, res) => {
                             req.session.token = generateToken(found);
                             req.session.name  = response.account.name;
                             req.session.email = response.account.username;
-                            res.redirect('https://localhost:8080/login?token=' + req.session.token);
+                            res.redirect(`${req.protocol}://${server.clienthost}/login?token=${req.session.token}`);
                         }
                     }
                 });
