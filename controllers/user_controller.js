@@ -331,7 +331,6 @@ const login = (req, res) => {
                                             },
                                             data: [
                                                 {
-                                                    resetPassword: resetPassword,
                                                     token: req.session.token
                                                 }
                                             ],
@@ -505,5 +504,6 @@ module.exports = {
     authMicrosoft,
     userData,
     updateUser,
-    updatePassword
+    updatePassword,
+    hasOldPassword
 };
