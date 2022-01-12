@@ -69,6 +69,12 @@ const register = (req, res) => {
                                           .then(passwdHash => {
                                               // When the hash is done we set the password to the hashed version
                                               req.body.password = passwdHash;
+                                              req.body.templates = [
+                                                  {
+                                                      title: "Standard template",
+                                                      cards: [-2, -1, 0, 1, 2, 3, 5, 8, 13, 20, 40, 100]
+                                                  }
+                                              ]
 
                                               // Insert database record
                                               User.create(req.body)
