@@ -23,7 +23,7 @@ const register = (req, res) => {
                             // If password is not 8 characters
                             if (req.body.password.length < 8)
                             {
-                                res.json
+                                res.status(500).json
                                    (
                                        {
                                            error : 'Password requires at least 8 characters',
@@ -34,7 +34,7 @@ const register = (req, res) => {
                             // If password doesn't include a capital letter
                             else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase()))
                             {
-                                res.json
+                                res.status(500).json
                                    (
                                        {
                                            error : 'Password requires at least 1 capital letter',
@@ -46,7 +46,7 @@ const register = (req, res) => {
                             // If password doesn't include a number
                             else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v))))
                             {
-                                res.json
+                                res.status(500).json
                                    (
                                        {
                                            error : 'Password requires at least 1 number',
@@ -57,7 +57,7 @@ const register = (req, res) => {
                             else
                             {
                                 if (Object.values(req.body).some(value => harms.test(value))) {
-                                    res.json
+                                    res.status(500).json
                                        ({
                                             error : 'Some characters are not allowed',
                                             field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
@@ -89,7 +89,7 @@ const register = (req, res) => {
                         }
                         else
                         {
-                            res.json
+                            res.status(500).json
                                (
                                    {
                                        error : 'Email is already taken',
@@ -104,7 +104,7 @@ const register = (req, res) => {
             }
             else
             {
-                res.json
+                res.status(500).json
                    (
                        {
                            error : 'Username is already taken',
@@ -166,7 +166,6 @@ const deleteData = (req, res) => {
 };
 
 const userData = (req, res) => {
-
     // Get user data from database
     User.find({email: req.session.email})
     .then((data) => {
@@ -175,7 +174,7 @@ const userData = (req, res) => {
             email:      data[0].email || '',
             age:        data[0].age || 0,
             function:   data[0].function || ''
-                             });
+        });
     })
 };
 
@@ -219,7 +218,7 @@ const updateUser = (req, res) => {
 const login = (req, res) => {
     User.find({email: req.body.email})
         .then(data => {
-            if (data.length === 0) res.json(
+            if (data.length === 0) res.status(404).json(
                 {
                     error: "User not found",
                     field: "email"
@@ -236,25 +235,25 @@ const login = (req, res) => {
 
                               User.find({email : req.body.email})
                                   .then(data => {
-                                      req.session.name = data[0].name
-                                      // Send a response containing the token
-                                      res.status(200).json(
-                                          {
-                                              meta : {
-                                                  count : 1
-                                              },
-                                              data : [
-                                                  {
-                                                      token : req.session.token
-                                                  }
-                                              ],
-                                          }
-                                      );
+                                    req.session.name = data[0].name
+                                    // Send a response containing the token
+                                    res.status(200).json(
+                                        {
+                                            meta : {
+                                                count : 1
+                                            },
+                                            data : [
+                                                {
+                                                    token : req.session.token
+                                                }
+                                            ],
+                                        }
+                                    );
                                   })
                           }
                           else
                           {
-                              res.json(
+                              res.status(400).json(
                                   {
                                       error : 'Invalid password',
                                       field : 'password'
@@ -263,12 +262,12 @@ const login = (req, res) => {
                           }
                       })
                       .catch(err => {
-                          res.json({ error: err.message });
+                        res.status(500).json({ error: err.message });
                       });
             }
         })
         .catch(err => {
-            res.json({ error: err.message });
+            res.status(500).json({ error: err.message });
         });
 }
 
@@ -318,7 +317,6 @@ const authMicrosoft = (req, res) => {
         res.sendStatus(500);
         return;
     }
-    console.log("Redirect url: ", `${req.protocol}://${server.hostname}/api/user/auth/microsoft`)
     const tokenRequest = {
         code: req.query.code,
         scopes: ["user.read"],
@@ -358,9 +356,11 @@ const authMicrosoft = (req, res) => {
                         }
                         else
                         {
+                            console.log(found);
                             req.session.token = generateToken(found);
-                            req.session.name  = response.account.name;
+                            req.session.name  = response.account.name || response.account.username;
                             req.session.email = response.account.username;
+                            console.log(req.session);
                             res.redirect(`${req.protocol}://${server.clienthost}/login?token=${req.session.token}`);
                         }
                     }
@@ -374,7 +374,7 @@ const generateToken = data => {
     // Secret is now stored in heroku config
     if (process.env.JWT_TOKEN_SECRET === "")
         process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
-
+    console.log("JWT_TOKEN:", process.env.JWT_TOKEN_SECRET);
     // Create a json webtoken to use for api calls
     return jwt.sign({userName : data[0].name, userEmail : data[0].email}, process.env.JWT_TOKEN_SECRET);
 }
