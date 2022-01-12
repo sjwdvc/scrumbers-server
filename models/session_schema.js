@@ -23,7 +23,9 @@ const feature = new Schema(
     {
         title : String,
         votes : [vote],
-        chat: [message]
+        chat: [message],
+        chosenNumber : Number,
+        chosenUser : String
     }
 );
 
