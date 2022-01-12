@@ -6,7 +6,8 @@ const {
     loginMicrosoft,
     userData,
     updateUser,
-    authMicrosoft
+    authMicrosoft,
+    updatePassword,
 } = require('../../controllers/user_controller');
 
 const router = express.Router();
@@ -19,5 +20,6 @@ router
     .get('/auth/microsoft', authMicrosoft)
     .get('/profile', userData)
     .post('/update', updateUser)
+    .post('/updatepassword', updatePassword)
 
 module.exports = router;

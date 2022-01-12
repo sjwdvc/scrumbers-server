@@ -37,6 +37,10 @@ const userSchema = new Schema(
             type : String,
             required : false,
         },
+        lastPasswordReset: {
+            type: Date,
+            required: false,
+        },
         templates : [template]
     },
     {timestamps : true},

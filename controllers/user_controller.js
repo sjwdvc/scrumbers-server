@@ -122,6 +122,90 @@ const register = (req, res) => {
 
 };
 
+const updatePassword = (req, res) => {
+    // validate password
+
+    // If password is not 8 characters
+    if (req.body.password.length < 8) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 8 characters',
+                    field: 'password'
+                }
+            )
+    }
+    // If password doesn't include a capital letter
+    else if (!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 1 capital letter',
+                    field: 'password'
+                }
+            )
+    }
+
+    // If password doesn't include a number
+    else if (!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+        res.json
+            (
+                {
+                    error: 'Password requires at least 1 number',
+                    field: 'password',
+                }
+            )
+    }
+
+
+    else if (Object.values(req.body).some(value => harms.test(value))) {
+        res.json
+            ({
+                error: 'Some characters are not allowed',
+                field: Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+            })
+    } else {
+        User.find({ email: req.session.email })
+            .then((data) => {
+
+                // check if new password is same as old password
+                bcrypt.compare(req.body.password, data[0].password)
+                    .then(result => {
+                        if (result) {
+                            res.json
+                                (
+                                    {
+                                        error: 'New password cannot be same as old password',
+                                        field: 'password',
+                                    }
+                                );
+                        } else {
+                            bcrypt.hash(req.body.password, 10)
+                                .then(passwdHash => {
+
+                                    console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
+
+                                    User.updateOne({
+                                        email: req.session.email
+                                    }, {
+                                        password: passwdHash,
+                                        lastPasswordReset: new Date()
+                                    }, {
+                                        upsert: true
+                                    }, (err, res) => console.log(err, res))
+                                        .catch((error) => {
+                                            console.log(error);
+                                        }).then(() => {
+                                            res.status(200).json({ changed: true });
+                                        });
+                                });
+                        }
+                    });
+
+            }).catch(err => res.status(500).json({ error: err.message }))
+    }
+};
+
 const readData = (req, res) => {
     User.find()
         .then((data) => {
@@ -181,7 +265,7 @@ const userData = (req, res) => {
             email:      data[0].email || '',
             age:        data[0].age || 0,
             function:   data[0].function || ''
-                             });
+        });
     })
 };
 
@@ -233,49 +317,80 @@ const login = (req, res) => {
             else
             {
                 bcrypt.compare(req.body.password, data[0].password)
-                      .then(result => {
-                          if (result)
-                          {
-                              // Set session properties
-                              req.session.token = generateToken(data)
-                              req.session.email = req.body.email
+                    .then(result => {
+                        if (result) {
+                            // Set session properties
+                            req.session.token = generateToken(data)
+                            req.session.email = req.body.email
 
-                              User.find({email : req.body.email})
-                                  .then(data => {
-                                      req.session.name = data[0].name
-                                      // Send a response containing the token
-                                      res.status(200).json(
-                                          {
-                                              meta : {
-                                                  count : 1
-                                              },
-                                              data : [
-                                                  {
-                                                      token : req.session.token
-                                                  }
-                                              ],
-                                          }
-                                      );
-                                  })
-                          }
-                          else
-                          {
-                              res.json(
-                                  {
-                                      error : 'Invalid password',
-                                      field : 'password'
-                                  }
-                              );
-                          }
-                      })
-                      .catch(err => {
-                          res.json({ error: err.message });
-                      });
+                            User.find({ email: req.body.email })
+                                .then(data => {
+
+                                    let resetPassword = hasOldPassword(data[0]);
+
+                                    req.session.name = data[0].name
+                                    // Send a response containing the token
+                                    res.status(200).json(
+                                        {
+                                            meta: {
+                                                count: 1
+                                            },
+                                            data: [
+                                                {
+                                                    token: req.session.token
+                                                }
+                                            ],
+                                        }
+                                    );
+                                })
+                        }
+                        else {
+                            res.json(
+                                {
+                                    error: 'Invalid password',
+                                    field: 'password'
+                                }
+                            );
+                        }
+                    })
+                    .catch(err => {
+                        res.json({ error: err.message });
+                    });
             }
         })
         .catch(err => {
             res.json({ error: err.message });
         });
+}
+
+/**
+ * Function to determine if user's password is older than 2 month,
+ * so we can tell the user to change their password.
+ * @param {*} data
+ * @returns
+*/
+const hasOldPassword = (data) => {
+    // if account type is microsoft
+    if (typeof data.accountType !== 'undefined') {
+        if (data.accountType === ACCOUNT_TYPE.MICROSOFT) {
+            return false;
+        }
+    }
+
+    // if no lassPasswordReset of undefined, set it to current datetime
+    if (data.lastPasswordReset == undefined) {
+        User.updateOne({ email: data.email }, { lastPasswordReset: new Date() }, { upsert: true }, (err, res) => console.log(err, res))
+        return false;
+    }
+
+    // get date, 2 months ago
+    let twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+    if (data.lastPasswordReset < twoMonthsAgo) {
+        return true;
+    }
+    return false;
 }
 
 const cca = new msal.ConfidentialClientApplication({
@@ -394,5 +509,7 @@ module.exports = {
     loginMicrosoft,
     authMicrosoft,
     userData,
-    updateUser
+    updateUser,
+    updatePassword,
+    hasOldPassword
 };

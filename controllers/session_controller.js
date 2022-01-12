@@ -5,6 +5,7 @@
 
 const { User } = require('../models/user_schema')
 const SessionObject = require('../models/session_schema')
+const userController = require('../controllers/user_controller')
 
 
 const check = (req, res) => {
@@ -17,7 +18,13 @@ const check = (req, res) => {
         User.find({email: req.session.email})
             .then((data) => {
                 req.session.name = data[0].name;
-                res.status(200).json({login: true, email: req.session.email, name: data[0].name});
+                resetPassword = userController.hasOldPassword(data[0]);
+                res.status(200).json({
+                    login: true,
+                    email: req.session.email,
+                    name: data[0].name,
+                    resetPassword: resetPassword
+                });
             })
     }
 }
