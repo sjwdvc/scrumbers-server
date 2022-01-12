@@ -72,7 +72,7 @@ const register = (req, res) => {
                                               req.body.templates = [
                                                   {
                                                       title: "Standard template",
-                                                      cards: [-2, -1, 0, 1, 3, 5, 8, 13, 20, 40, 100]
+                                                      cards: [-2, -1, 0, 1, 2, 3, 5, 8, 13, 20, 40, 100]
                                                   }
                                               ]
 
