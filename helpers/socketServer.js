@@ -18,6 +18,7 @@ module.exports = function(io)
 
     // Listen for connections
     io.on('connection', client => {
+        let currentBoard;
 
         // TODO
         // Add client on disconnect
@@ -42,6 +43,9 @@ module.exports = function(io)
                             client.name     = args.name;
                             client.email    = args.email;
 
+                            // save the current board
+                            currentBoard = board;
+                            
                             // Create session a key
                             let key = generateID();
 
@@ -49,7 +53,7 @@ module.exports = function(io)
                                 let session = new Session(client, key, data[0]._id);
                                 session.stateMachine = new StateMachine(session);
 
-                                // Create a session in teh database
+                                // Create a session in the database
                                 SessionObject.create(
                                     {
                                         admin: Types.ObjectId(session.adminID),
@@ -64,7 +68,8 @@ module.exports = function(io)
                                 // Give our board to the session
                                 session.trelloBoard = board;
                                 session.trelloApi   = trello;
-                              
+                                
+
                                 // Put coffee time out length in session
                                 session.coffee = args.coffee;
 
@@ -228,6 +233,8 @@ module.exports = function(io)
                             SessionObject
                                 .find({players : { $elemMatch: { email: args.email }}})
                                 .then(data => {
+                                    // Reverse the array order
+                                    data.reverse();
                                     client.emit('history', { sessions: data })
                                 })
                         break;
@@ -313,6 +320,7 @@ module.exports = function(io)
                                                  sender: client.name,
                                                  round: currentSession.stateMachine.state
                                              }
+                                            
                                          }
                                 }, {
                                     arrayFilters: [{ 'i': currentSession.featurePointer }],
@@ -349,12 +357,28 @@ module.exports = function(io)
                     else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
                     else 
                     {
+
+
+                        // Get full name of user with id
+                        currentSession.trelloApi.getBoardMembers(currentBoard.id).then(members => {
+                            let SelectedUserFullname = members.find(member => member.id == args.member).fullName
+
+                            // Add chosen user to database
+                            SessionObject.updateOne(
+                                { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
+                                { "$set": { 'features.$.chosenUser': SelectedUserFullname } }
+                            ).catch( err => console.log(err));
+
+                        }).catch(err => console.error(err));
+
+
                         // Add the given user to the card and load the next state
                         currentSession.trelloApi.addMemberToCard(
                             currentSession.backlog.cards[currentSession.featurePointer],
                             args.member
                         ).then(() => {
                             currentSession.featureAssignedMember = args.member;
+
                             currentSession.stateMachine.loadNextState();
                         }).catch(err => {
                             if (err?.response?.data == 'member is already on the card')
