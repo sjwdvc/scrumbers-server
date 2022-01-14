@@ -233,6 +233,8 @@ module.exports = function(io)
                             SessionObject
                                 .find({players : { $elemMatch: { email: args.email }}})
                                 .then(data => {
+                                    // Reverse the array order
+                                    data.reverse();
                                     client.emit('history', { sessions: data })
                                 })
                         break;
