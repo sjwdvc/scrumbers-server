@@ -18,7 +18,7 @@ module.exports.getTransport = () =>
             if (error)
                 reject(error);
             else
-                success(transport);
+                resolve(transport);
         });
     });
 };
