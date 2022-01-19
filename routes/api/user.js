@@ -8,6 +8,7 @@ const {
     updateUser,
     authMicrosoft,
     updatePassword,
+    canResetPassword
 } = require('../../controllers/user_controller');
 
 const router = express.Router();
@@ -21,5 +22,6 @@ router
     .get('/profile', userData)
     .post('/update', updateUser)
     .post('/updatepassword', updatePassword)
+    .post('/resetPassword', canResetPassword)
 
 module.exports = router;

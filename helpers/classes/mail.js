@@ -1,9 +1,9 @@
 const nodemailer = require('nodemailer');
 /**
  * 
- * @returns {Promise<transport>}
+ * @returns {Promise<nodemailer.Transporter<SMTPTransport.SentMessageInfo>>}
  */
-module.exports.getTransport = () => 
+module.exports = () => 
 {
     return new Promise((resolve, reject) => {
         var transport = nodemailer.createTransport({

@@ -8,7 +8,8 @@ const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
 const msal      = require('@azure/msal-node');
 const server    = require('../server');
-const { User, ACCOUNT_TYPE } = require('../models/user_schema')
+const { User, ACCOUNT_TYPE } = require('../models/user_schema');
+const { generateID } = require('../helpers/misc');
 
 const register = (req, res) => {
     // Check if the user already exists in the database
@@ -392,6 +393,44 @@ const hasOldPassword = (data) => {
     }
     return false;
 }
+/**
+ * Send an email to the users email address if there is a user with this email address
+ */
+const canResetPassword = (req, res) => {
+    User.find({email: 'rlugtigheid77@gmail.com'})
+        .then(user => {
+            console.log(req.body);
+            console.log(user);
+            // Check if a user was found
+            if (user && user[0])
+            {
+                require('../helpers/classes/mail')().then(transport => {
+                    // Generate a token so we can validate the requester on the client
+                    let token = generateID();
+
+                    // Add the userID and an timestamp to the token                    
+                    token = token + '_' + user[0].id + '_' + Date.now();
+                    console.log('token: ', token);
+                    // Hash the token
+                    token = bcrypt.hashSync(token, 10);
+                    console.log('hashed token: ', token);
+
+                    // Add the token to the user
+                    User.updateOne({ email: user[0].email }, { token }, { upsert: true }, (err, res) => console.log(err, res));
+
+                    // Send the mail
+                    transport.sendMail({
+                        from    : 'admin@scrumbers.com',
+                        to      : user[0].email,
+                        text    : '',
+                        html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset#${token}">here</a> to reset your password`
+                    });
+                }).catch(err => {
+                    console.error("Error when sending email: \n" + err);
+                });
+            }
+        });
+}
 
 const cca = new msal.ConfidentialClientApplication({
     auth: {
@@ -511,5 +550,6 @@ module.exports = {
     userData,
     updateUser,
     updatePassword,
-    hasOldPassword
+    hasOldPassword,
+    canResetPassword
 };
