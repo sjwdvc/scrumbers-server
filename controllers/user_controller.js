@@ -191,8 +191,6 @@ const updatePassword = (req, res) => {
                             bcrypt.hash(req.body.password, 10)
                                 .then(passwdHash => {
 
-                                    console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
-
                                     User.updateOne({
                                         email: req.session.email
                                     }, {
@@ -201,10 +199,10 @@ const updatePassword = (req, res) => {
                                     }, {
                                         upsert: true
                                     }, (err, res) => console.log(err, res))
-                                        .catch((error) => {
-                                            console.log(error);
-                                        }).then(() => {
+                                        .then(() => {
                                             res.status(200).json({ changed: true });
+                                        }).catch((error) => {
+                                            console.log(error);
                                         });
                                 });
                         }
@@ -430,8 +428,12 @@ const canResetPassword = (req, res) => {
                         text    : '',
                         html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset/#${token}">here</a> to reset your password`
                     });
+
+                    res.status(200).json({ status: true });
+
                 }).catch(err => {
                     console.error("Error when sending email: \n" + err);
+                    res.status(400).json({ error: "Error trying to send email" });
                 });
             }
         });
@@ -439,7 +441,7 @@ const canResetPassword = (req, res) => {
 const resetPassword = (req, res) => {
     // Check if the token is not expired
     jwt.verify(req.body.token, process.env.JWT_TOKEN_SECRET, (err, decoded) => {
-        if (decoded != undefined) 
+        if (decoded !== undefined) 
         {
             // Get the user by token
             User.find({token: req.body.token})
@@ -454,20 +456,19 @@ const resetPassword = (req, res) => {
                             bcrypt.hash(req.body.password, 10)
                                 .then(passwdHash => {
 
-                                    console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
-
                                     User.updateOne({
-                                        email: req.session.email
+                                        email: user[0].email
                                     }, {
                                         password: passwdHash,
                                         lastPasswordReset: new Date()
                                     }, {
                                         upsert: true
-                                    }, (err, res) => console.log(err, res))
-                                        .catch((error) => {
+                                    }, (err, res) => console.log(err, res)).clone()
+                                        .then(() => {
+                                            res.status(200).json({ status: true });
+                                        }).catch((error) => {
                                             console.log(error);
-                                        }).then(() => {
-                                            res.status(200).json({ changed: true });
+                                            res.status(200).json({ error: "Something went wrong trying to change your password" });
                                         });
                                 });
                         }
