@@ -2,7 +2,6 @@
 
 // Imports
 const jwt       = require('jsonwebtoken');
-const fs        = require('fs');
 const bcrypt    = require('bcrypt');
 const harms     = /[!#$%^&*()_+\-=\[\]{};':"\\|,<>\/?]+/;
 const session   = require('express-session')
@@ -10,6 +9,7 @@ const msal      = require('@azure/msal-node');
 const server    = require('../server');
 const { User, ACCOUNT_TYPE } = require('../models/user_schema');
 const { generateID } = require('../helpers/misc');
+const req = require('express/lib/request');
 
 const register = (req, res) => {
     // Check if the user already exists in the database
@@ -123,42 +123,49 @@ const register = (req, res) => {
 
 };
 
-const updatePassword = (req, res) => {
-    // validate password
-
+const validatePassword = (password) => {
+    
     // If password is not 8 characters
-    if (req.body.password.length < 8) {
+    if (password.length < 8) {
         res.json
             (
                 {
                     error: 'Password requires at least 8 characters',
                     field: 'password'
                 }
-            )
+            );
+        return false;
     }
     // If password doesn't include a capital letter
-    else if (!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
+    else if (!password.split("").some(letter => letter === letter.toUpperCase())) {
         res.json
             (
                 {
                     error: 'Password requires at least 1 capital letter',
                     field: 'password'
                 }
-            )
+            );
+        return false;
     }
 
     // If password doesn't include a number
-    else if (!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+    else if (!password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
         res.json
             (
                 {
                     error: 'Password requires at least 1 number',
                     field: 'password',
                 }
-            )
+            );
+        return false;
     }
+    return true;
+}
 
-
+const updatePassword = (req, res) => {
+    // validate password
+    if (!validatePassword(req.body.password))
+        return;
     else if (Object.values(req.body).some(value => harms.test(value))) {
         res.json
             ({
@@ -397,7 +404,7 @@ const hasOldPassword = (data) => {
  * Send an email to the users email address if there is a user with this email address
  */
 const canResetPassword = (req, res) => {
-    User.find({email: 'rlugtigheid77@gmail.com'})
+    User.find({email: req.body.email})
         .then(user => {
             console.log(req.body);
             console.log(user);
@@ -406,14 +413,8 @@ const canResetPassword = (req, res) => {
             {
                 require('../helpers/classes/mail')().then(transport => {
                     // Generate a token so we can validate the requester on the client
-                    let token = generateID();
-
-                    // Add the userID and an timestamp to the token                    
-                    token = token + '_' + user[0].id + '_' + Date.now();
+                    let token = jwt.sign({id : generateID(), user : user[0].id, timestamp : Date.now() }, process.env.JWT_TOKEN_SECRET)
                     console.log('token: ', token);
-                    // Hash the token
-                    token = bcrypt.hashSync(token, 10);
-                    console.log('hashed token: ', token);
 
                     // Add the token to the user
                     User.updateOne({ email: user[0].email }, { token }, { upsert: true }, (err, res) => console.log(err, res));
@@ -423,13 +424,55 @@ const canResetPassword = (req, res) => {
                         from    : 'admin@scrumbers.com',
                         to      : user[0].email,
                         text    : '',
-                        html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset#${token}">here</a> to reset your password`
+                        html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset/#${token}">here</a> to reset your password`
                     });
                 }).catch(err => {
                     console.error("Error when sending email: \n" + err);
                 });
             }
         });
+}
+const resetPassword = (req, res) => {
+    // Check if the token is not expired
+    jwt.verify(req.body.token, process.env.JWT_TOKEN_SECRET, (err, decoded) => {
+        if (decoded != undefined) 
+        {
+            // Get the user by token
+            User.find({token: req.body.token})
+                .then(user => {
+                    // Check if we have a user
+                    if (user && user[0])
+                    {
+                        // Validate new password
+                        if (validatePassword(req.body.password))
+                        {
+                            // Than replace the passwords
+                            bcrypt.hash(req.body.password, 10)
+                                .then(passwdHash => {
+
+                                    console.log(req.session.email, data[0].password, passwdHash, data.password === passwdHash);
+
+                                    User.updateOne({
+                                        email: req.session.email
+                                    }, {
+                                        password: passwdHash,
+                                        lastPasswordReset: new Date()
+                                    }, {
+                                        upsert: true
+                                    }, (err, res) => console.log(err, res))
+                                        .catch((error) => {
+                                            console.log(error);
+                                        }).then(() => {
+                                            res.status(200).json({ changed: true });
+                                        });
+                                });
+                        }
+                    }
+                });
+        }
+        else 
+            res.status(403).json({ error: 'Invalid token' });
+    });
 }
 
 const cca = new msal.ConfidentialClientApplication({
@@ -551,5 +594,6 @@ module.exports = {
     updateUser,
     updatePassword,
     hasOldPassword,
-    canResetPassword
+    canResetPassword,
+    resetPassword
 };
