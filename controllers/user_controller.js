@@ -412,6 +412,10 @@ const canResetPassword = (req, res) => {
             if (user && user[0])
             {
                 require('../helpers/classes/mail')().then(transport => {
+                // Secret is now stored in heroku config
+                if (process.env.JWT_TOKEN_SECRET === "")
+                    process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+
                     // Generate a token so we can validate the requester on the client
                     let token = jwt.sign({id : generateID(), user : user[0].id, timestamp : Date.now() }, process.env.JWT_TOKEN_SECRET)
                     console.log('token: ', token);
