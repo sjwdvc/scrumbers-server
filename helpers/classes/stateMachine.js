@@ -171,6 +171,8 @@ class StateMachine {
                         let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes
                                              .filter(vote => vote.round === 2).map(vote => vote.value))
 
+                        console.log(commoncards)
+
                         if(commoncards.length > 1)
                             this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
                         else this.session.admin.emit('admin', { event: 'choose', members : members, cards: commoncards, data: this.session.featureData()});

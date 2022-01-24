@@ -357,7 +357,7 @@ module.exports = function(io)
                     else 
                     {
 
-
+                        
                         // Get full name of user with id
                         currentSession.trelloApi.getBoardMembers(currentBoard.id).then(members => {
                             let SelectedUserFullname = members.find(member => member.id == args.member).fullName
@@ -367,32 +367,34 @@ module.exports = function(io)
                                 { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
                                 { "$set": { 'features.$.chosenUser': SelectedUserFullname } }
                             ).catch( err => console.log(err));
-
-                        }).catch(err => console.error(err));
-
-
-                        // Add the given user to the card and load the next state
-                        currentSession.trelloApi.addMemberToCard(
-                            currentSession.backlog.cards[currentSession.featurePointer],
-                            args.member
-                        ).then(() => {
-                            currentSession.featureAssignedMember = args.member;
-
-                            currentSession.stateMachine.loadNextState();
-                        }).catch(err => {
-                            if (err?.response?.data == 'member is already on the card')
-                            {
+                            
+                        }).catch(err => console.error(err)).then(()=>{
+                            // Add the given user to the card and load the next state
+                            currentSession.trelloApi.addMemberToCard(
+                                currentSession.backlog.cards[currentSession.featurePointer],
+                                args.member
+                            ).then(() => {
                                 currentSession.featureAssignedMember = args.member;
-                                currentSession.stateMachine.number = args.number;
-
-                                // When the admin assigns the last user>card, check if there is a next feature, else end the session
-                                if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
-                                    currentSession.stateMachine.state = STATE.END;
 
                                 currentSession.stateMachine.loadNextState();
-                            }
-                            else console.error(err);
-                        });
+                            }).catch(err => {
+                                if (err?.response?.data == 'member is already on the card')
+                                {
+                                    currentSession.featureAssignedMember = args.member;
+                                    currentSession.stateMachine.number = args.number;
+
+                                    // When the admin assigns the last user>card, check if there is a next feature, else end the session
+                                    if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
+                                        currentSession.stateMachine.state = STATE.END;
+
+                                    currentSession.stateMachine.loadNextState();
+                                }
+                                else console.error(err);
+                            });
+                        })
+
+
+                        
                     }
                 break;
             }
