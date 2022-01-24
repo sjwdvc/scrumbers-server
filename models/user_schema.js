@@ -41,7 +41,11 @@ const userSchema = new Schema(
             type: Date,
             required: false,
         },
-        templates : [template]
+        templates : [template],
+        token: {
+            type: String,
+            default: ''          
+        }
     },
     {timestamps : true},
 );

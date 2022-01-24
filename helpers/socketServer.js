@@ -4,8 +4,7 @@ const { Types }     = require('mongoose');
 const Session  = require('./classes/session');
 const { StateMachine, STATE }  = require('./classes/stateMachine');
 const { TrelloApi, Board, List, Card } = require('./trelloApi');
-
-let generateID = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+const { generateID } = require('./misc')
 
 module.exports = function(io)
 {
