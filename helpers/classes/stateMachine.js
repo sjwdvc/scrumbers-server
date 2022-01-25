@@ -97,6 +97,7 @@ class StateMachine {
                 break;
 
                 case STATE.END:
+                    this.session.setCardScore(this.number);
                     this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
                     break;
             }
@@ -169,6 +170,8 @@ class StateMachine {
 
                         let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes
                                              .filter(vote => vote.round === 2).map(vote => vote.value))
+
+                        console.log(commoncards)
 
                         if(commoncards.length > 1)
                             this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });

@@ -37,7 +37,15 @@ const userSchema = new Schema(
             type : String,
             required : false,
         },
-        templates : [template]
+        lastPasswordReset: {
+            type: Date,
+            required: false,
+        },
+        templates : [template],
+        token: {
+            type: String,
+            default: ''          
+        }
     },
     {timestamps : true},
 );

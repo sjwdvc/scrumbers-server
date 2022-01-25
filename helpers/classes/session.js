@@ -197,6 +197,13 @@ class Session
 
         // Now we update the name of the card to our new name
         this.trelloApi.updateCardName(this.backlog.cards[this.featurePointer], cardName);
+
+        // Add chosen number to database
+        SessionObject.updateOne(
+            { "features._id": this.dbData.features[this.featurePointer]._id },
+            { "$set": { 'features.$.chosenNumber': score } }
+         ).catch( err => console.log(err));
+
     }
 }
 module.exports = Session;
