@@ -375,7 +375,7 @@ module.exports = function(io)
                         else
                         {
                             // Get full name of user with id
-                            currentSession.trelloApi.getBoardMembers(currentBoard.id)
+                            currentSession.trelloApi.getBoardMembers(currentSession.trelloBoard.id)
                                           .then(members => {
                                               let SelectedUserFullname = members.find(member => member.id == args.member).fullName
 
