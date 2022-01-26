@@ -75,10 +75,31 @@ class StateMachine {
                     }
 
                     // Send the results back to the client
-                    this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
-                        this.session.broadcast('results', { number: this.number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer - 1] });
+                    if(this.session.featureAssignedMember === -1)
+                    {
+
+
+                        console.log('backlog cards')
+                        console.log(this.session.backlog.cards)
+                        console.log(this.session.featurePointer - 1)
+                        console.log(this.session.backlog.cards[this.session.featurePointer - 1])
+
+
+
+
+
+
+
+                        this.session.broadcast('results', { number: this.number, member: -1, feature: this.session.backlog.cards[this.session.featurePointer] });
                         this.session.featureAssignedMember = null;
-                    }).catch(err => console.error(err));
+                    }
+                    else
+                    {
+                        this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
+                            this.session.broadcast('results', { number: this.number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer] });
+                            this.session.featureAssignedMember = null;
+                        }).catch(err => console.error(err));
+                    }
 
                     // Continue to the next round
                     this.state = STATE.ROUND_1;

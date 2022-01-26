@@ -350,51 +350,62 @@ module.exports = function(io)
                     // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
                     if (currentSession.stateMachine.state != STATE.ADMIN_CHOICE && client.id != currentSession.admin.id) return;
 
-                    // Check if we have recived a value
-                    if (!args.member) client.emit('error', { error: 'memberID not found in arguments' });
-                    // Check if our given memberID is valid
-                    else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
-                    else 
+                    if(args.member === -1)
                     {
-
-                        
-                        // Get full name of user with id
-                        currentSession.trelloApi.getBoardMembers(currentBoard.id).then(members => {
-                            let SelectedUserFullname = members.find(member => member.id == args.member).fullName
-
-                            // Add chosen user to database
-                            SessionObject.updateOne(
-                                { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
-                                { "$set": { 'features.$.chosenUser': SelectedUserFullname } }
-                            ).catch( err => console.log(err));
-                            
-                        }).catch(err => console.error(err)).then(()=>{
-                            // Add the given user to the card and load the next state
-                            currentSession.trelloApi.addMemberToCard(
-                                currentSession.backlog.cards[currentSession.featurePointer],
-                                args.member
-                            ).then(() => {
+                        SessionObject.updateOne(
+                            { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
+                            { "$set": { 'features.$.chosenUser': -1 } })
+                            .then(() => {
                                 currentSession.featureAssignedMember = args.member;
+                                currentSession.stateMachine.number = args.number;
 
-                                currentSession.stateMachine.loadNextState();
-                            }).catch(err => {
-                                if (err?.response?.data == 'member is already on the card')
+                                if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
                                 {
-                                    currentSession.featureAssignedMember = args.member;
-                                    currentSession.stateMachine.number = args.number;
+                                    currentSession.stateMachine.state = STATE.END;currentSession.stateMachine.loadNextState();
+                                } else currentSession.stateMachine.loadNextState();
+                            })
+                    }
+                    else
+                    {
+                        // Check if we have recived a value
+                        if (!args.member) client.emit('error', { error: 'memberID not found in arguments' });
 
-                                    // When the admin assigns the last user>card, check if there is a next feature, else end the session
-                                    if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
-                                        currentSession.stateMachine.state = STATE.END;
+                        // Check if our given memberID is valid
+                        else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
+                        else
+                        {
+                            // Get full name of user with id
+                            currentSession.trelloApi.getBoardMembers(currentBoard.id)
+                                          .then(members => {
+                                              let SelectedUserFullname = members.find(member => member.id == args.member).fullName
 
-                                    currentSession.stateMachine.loadNextState();
-                                }
-                                else console.error(err);
-                            });
-                        })
+                                              // Add chosen user to database
+                                              SessionObject.updateOne(
+                                                  { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
+                                                  { "$set": { 'features.$.chosenUser': SelectedUserFullname } })
+                                                           .then(() => {
+                                                               // Add the given user to the card and load the next state
+                                                               currentSession.trelloApi.addMemberToCard(currentSession.backlog.cards[currentSession.featurePointer], args.member)
+                                                                             .then(() => {
+                                                                                 currentSession.featureAssignedMember = args.member;
+                                                                                 currentSession.stateMachine.loadNextState();
+                                                                             })
+                                                                             .catch(err => {
+                                                                                 if (err?.response?.data == 'member is already on the card')
+                                                                                 {
+                                                                                     currentSession.featureAssignedMember = args.member;
+                                                                                     currentSession.stateMachine.number = args.number;
 
-
-                        
+                                                                                     // When the admin assigns the last user>card, check if there is a next feature, else end the session
+                                                                                     if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
+                                                                                         currentSession.stateMachine.state = STATE.END;currentSession.stateMachine.loadNextState();
+                                                                                 }
+                                                                                 else console.error(err);
+                                                                             });
+                                                           }).catch(err => console.error(err))
+                                          })
+                                          .catch(err => console.error(err))
+                        }
                     }
                 break;
             }
