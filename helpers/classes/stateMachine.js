@@ -99,7 +99,7 @@ class StateMachine {
                 case STATE.END:
                     this.session.setCardScore(this.number);
                     this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
-                    break;
+                break;
             }
             this.prevState = this.state;
         }
