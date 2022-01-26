@@ -158,9 +158,12 @@ class Session
 
     /**
      * Pushes a new feature object to store chats and votes into the session DB document
+     * @returns {boolean} Success
      */
     createFeatureObject()
     {
+        if (this.featurePointer > this.backlog.cards.length)
+            return false;
         SessionObject.findByIdAndUpdate(this.dbData._id, {
             $push: {
                 features: {
@@ -170,8 +173,9 @@ class Session
                 }
             }
         }, { new: true })
-             .then(res => this.dbData = res)
-             .catch(err => console.error(err));
+                .then(res => this.dbData = res)
+                .catch(err => console.error(err));
+        return true;
     }
 
     /**
