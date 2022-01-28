@@ -402,31 +402,47 @@ const hasOldPassword = (data) => {
  * Send an email to the users email address if there is a user with this email address
  */
 const canResetPassword = (req, res) => {
-    User.find({email: req.body.email})
+    User.find({ email: req.body.email, accountType: 0 })
         .then(user => {
-            console.log(req.body);
-            console.log(user);
             // Check if a user was found
-            if (user && user[0])
-            {
+            if (user && user[0]) {
                 require('../helpers/classes/mail')().then(transport => {
-                // Secret is now stored in heroku config
-                if (process.env.JWT_TOKEN_SECRET === "")
-                    process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+                    const hbs = require('nodemailer-express-handlebars');
+                    const path = require('path');
+
+                    // Secret is now stored in heroku config
+                    if (process.env.JWT_TOKEN_SECRET === "")
+                        process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
                     // Generate a token so we can validate the requester on the client
-                    let token = jwt.sign({id : generateID(), user : user[0].id, timestamp : Date.now() }, process.env.JWT_TOKEN_SECRET)
-                    console.log('token: ', token);
+                    let token = jwt.sign({ id: generateID(), user: user[0].id, timestamp: Date.now() }, process.env.JWT_TOKEN_SECRET)
 
                     // Add the token to the user
                     User.updateOne({ email: user[0].email }, { token }, { upsert: true }, (err, res) => console.log(err, res));
 
+                    // point to the template folder
+                    const handlebarOptions = {
+                        viewEngine: {
+                            partialsDir: path.resolve('./views/emailtemplates/'),
+                            defaultLayout: false,
+                        },
+                        viewPath: path.resolve('./views/emailtemplates/'),
+                    };
+
+                    // use a template file with nodemailer
+                    transport.use('compile', hbs(handlebarOptions))
+
                     // Send the mail
                     transport.sendMail({
-                        from    : 'admin@scrumbers.com',
-                        to      : user[0].email,
-                        text    : '',
-                        html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset/#${token}">here</a> to reset your password`
+                        from: '"Scrumbers" <admin@scrumbers.com>',
+                        to: user[0].email,
+                        subject: 'Scrumbers - Password reset',
+                        template: 'resetpassword',
+                        context: {
+                            name: user[0].name,
+                            reseturl: `${req.protocol}://${server.clienthost}/passwordreset/#${token}`,
+                            appurl: `${req.protocol}://${server.clienthost}`,
+                        }
                     });
 
                     res.status(200).json({ status: true });
