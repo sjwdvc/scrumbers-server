@@ -123,7 +123,7 @@ const register = (req, res) => {
 
 };
 
-const validatePassword = (password) => {
+const validatePassword = (password, res) => {
     
     // If password is not 8 characters
     if (password.length < 8) {
@@ -164,8 +164,9 @@ const validatePassword = (password) => {
 
 const updatePassword = (req, res) => {
     // validate password
-    if (!validatePassword(req.body.password))
+    if (!validatePassword(req.body.password, res)) {
         return;
+    }
     else if (Object.values(req.body).some(value => harms.test(value))) {
         res.json
             ({
@@ -466,7 +467,7 @@ const resetPassword = (req, res) => {
                     if (user && user[0])
                     {
                         // Validate new password
-                        if (validatePassword(req.body.password))
+                        if (validatePassword(req.body.password, res))
                         {
                             // Than replace the passwords
                             bcrypt.hash(req.body.password, 10)
