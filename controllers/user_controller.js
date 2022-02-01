@@ -151,11 +151,11 @@ const validatePassword = (req, res) => {
         return false;
     }
     // If password contains specific characters
-    else if (Object.values(req.body).some(value => harms.test(value))) {
+    else if (Object.values(req.body.password).some(value => harms.test(value))) {
         res.json
             ({
                 error: 'Some characters are not allowed',
-                field: Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+                field: Object.keys(req.body.password).find(k => req.body[k] === Object.values(req.body.password).find(value => harms.test(value)))
             })
     }
     return true;
@@ -483,11 +483,11 @@ const resetPassword = (req, res) => {
                     if (user && user[0])
                     {
                         // Validate new password
-                        if (validatePassword(req.body.password, res))
+                        if (validatePassword(req, res))
                         {
 
                             // check if new password has been used before
-                            usedPasswordBefore(req.body.password, data[0].passwordHistory).then(result => {
+                            usedPasswordBefore(req.body.password, user[0].passwordHistory ?? []).then(result => {
                                 if (result) {
                                     res.json
                                         (
@@ -502,7 +502,7 @@ const resetPassword = (req, res) => {
                                     bcrypt.hash(req.body.password, 10)
                                         .then(passwdHash => {
 
-                                            let passwordHistory = data[0].passwordHistory ?? [];
+                                            let passwordHistory = user[0].passwordHistory ?? [];
                                             passwordHistory.push(passwdHash);
 
                                             User.updateOne({
