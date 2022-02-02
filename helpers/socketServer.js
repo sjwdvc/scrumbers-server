@@ -52,6 +52,7 @@ module.exports = function(io)
                                 let session = new Session(client, key, data[0]._id);
                                 session.stateMachine = new StateMachine(session);
 
+
                                 // Create a session in the database
                                 SessionObject.create(
                                     {
@@ -109,7 +110,7 @@ module.exports = function(io)
                     currentSession = this.activeSessions.find(session => session.key == args.key);
 
                     // If a session is found, continue
-                    if (currentSession !== undefined)
+                    if (currentSession != undefined || currentSession != null)
                     {
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
@@ -201,11 +202,13 @@ module.exports = function(io)
                     break;
 
                 case 'leave':
-                    currentSession = this.activeSessions.find(session => 
-                        {
-                            return session.key == args.key;
 
-                        });
+                    currentSession = this.activeSessions.find(session => session.key == args.key);
+
+                    if(currentSession == undefined) return;
+
+                    console.log('leaving session')
+
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
@@ -216,12 +219,13 @@ module.exports = function(io)
                     // Remove client from client list
                     currentSession.clients = currentSession.clients.filter(c => c !== leavingClient)
 
-                    // Check if all the other users submitted a value
-                    if ((currentSession.stateMachine.state == STATE.ROUND_1 || currentSession.stateMachine.state == STATE.ROUND_2) && (currentSession.submits.length == currentSession.clients.length))
-                    {
-                        // Load the next state
-                        currentSession.stateMachine.loadNextState();
-                    }
+                    // Destroy session
+                    if(currentSession.clients.length != 0 ) return;
+
+                    // Remove session from active session list
+                    this.activeSessions.splice(this.activeSessions.indexOf(currentSession), 1)
+
+
                 break;
 
                 // Loads the session history data for the session history/lookback component
