@@ -407,10 +407,10 @@ const hasOldPassword = (data) => {
     }
 
     // get date, 2 months ago
-    let twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    let sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    if (data.lastPasswordReset < twoMonthsAgo) {
+    if (data.lastPasswordReset < sixMonthsAgo) {
         return true;
     }
     return false;
