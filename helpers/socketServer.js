@@ -52,6 +52,7 @@ module.exports = function(io)
                                 let session = new Session(client, key, data[0]._id);
                                 session.stateMachine = new StateMachine(session);
 
+
                                 // Create a session in the database
                                 SessionObject.create(
                                     {
@@ -109,7 +110,7 @@ module.exports = function(io)
                     currentSession = this.activeSessions.find(session => session.key == args.key);
 
                     // If a session is found, continue
-                    if (currentSession !== undefined)
+                    if (currentSession != undefined || currentSession != null)
                     {
                         // Set client properties for filtering etc. It's not possible to filter clients by the existing ID because this number changes every page refresh
                         // Names and emails are also used in the front-end to display users
@@ -201,11 +202,13 @@ module.exports = function(io)
                     break;
 
                 case 'leave':
-                    currentSession = this.activeSessions.find(session => 
-                        {
-                            return session.key == args.key;
 
-                        });
+                    currentSession = this.activeSessions.find(session => session.key == args.key);
+
+                    if(currentSession == undefined) return;
+
+                    console.log('leaving session')
+
                     let leavingClient = currentSession.clients.find(client => client.email === args.email);
                     currentSession.clients.splice(currentSession.clients.indexOf(leavingClient), 1);
 
@@ -216,12 +219,13 @@ module.exports = function(io)
                     // Remove client from client list
                     currentSession.clients = currentSession.clients.filter(c => c !== leavingClient)
 
-                    // Check if all the other users submitted a value
-                    if ((currentSession.stateMachine.state == STATE.ROUND_1 || currentSession.stateMachine.state == STATE.ROUND_2) && (currentSession.submits.length == currentSession.clients.length))
-                    {
-                        // Load the next state
-                        currentSession.stateMachine.loadNextState();
-                    }
+                    // Destroy session
+                    if(currentSession.clients.length != 0 ) return;
+
+                    // Remove session from active session list
+                    this.activeSessions.splice(this.activeSessions.indexOf(currentSession), 1)
+
+
                 break;
 
                 // Loads the session history data for the session history/lookback component
@@ -265,11 +269,16 @@ module.exports = function(io)
                     if (currentSession.stateMachine.state != STATE.ROUND_1 && currentSession.stateMachine.state != STATE.ROUND_2) 
                     {
                         client.emit('error', { error: 'You can not submit during this state of the game' });
-                        return;
+                    }
+
+                    // Validate user input
+                    else if (isNaN(args.number))
+                    {
+                        client.emit('error', { error: "Given card must be a number!" });
                     }
 
                     // Check if the client has already submitted a value
-                    if (!currentSession.submits.includes(args.email))
+                    else if (!currentSession.submits.includes(args.email))
                     {
                         // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
@@ -328,6 +337,7 @@ module.exports = function(io)
                         }
                         submit
                         .then(() => {
+                            client.emit('success', {  }); // Tell the client it was a success
                             currentSession.broadcast('submit', {
                                 user: client.name,
                             });
@@ -350,51 +360,62 @@ module.exports = function(io)
                     // Make sure we can't make a choose when the state is not admin_chooses and when the client is not the admin
                     if (currentSession.stateMachine.state != STATE.ADMIN_CHOICE && client.id != currentSession.admin.id) return;
 
-                    // Check if we have recived a value
-                    if (!args.member) client.emit('error', { error: 'memberID not found in arguments' });
-                    // Check if our given memberID is valid
-                    else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
-                    else 
+                    if(args.member === -1)
                     {
-
-                        
-                        // Get full name of user with id
-                        currentSession.trelloApi.getBoardMembers(currentBoard.id).then(members => {
-                            let SelectedUserFullname = members.find(member => member.id == args.member).fullName
-
-                            // Add chosen user to database
-                            SessionObject.updateOne(
-                                { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
-                                { "$set": { 'features.$.chosenUser': SelectedUserFullname } }
-                            ).catch( err => console.log(err));
-                            
-                        }).catch(err => console.error(err)).then(()=>{
-                            // Add the given user to the card and load the next state
-                            currentSession.trelloApi.addMemberToCard(
-                                currentSession.backlog.cards[currentSession.featurePointer],
-                                args.member
-                            ).then(() => {
+                        SessionObject.updateOne(
+                            { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
+                            { "$set": { 'features.$.chosenUser': -1 } })
+                            .then(() => {
                                 currentSession.featureAssignedMember = args.member;
+                                currentSession.stateMachine.number = args.number;
 
-                                currentSession.stateMachine.loadNextState();
-                            }).catch(err => {
-                                if (err?.response?.data == 'member is already on the card')
+                                if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
                                 {
-                                    currentSession.featureAssignedMember = args.member;
-                                    currentSession.stateMachine.number = args.number;
+                                    currentSession.stateMachine.state = STATE.END;currentSession.stateMachine.loadNextState();
+                                } else currentSession.stateMachine.loadNextState();
+                            })
+                    }
+                    else
+                    {
+                        // Check if we have recived a value
+                        if (!args.member) client.emit('error', { error: 'memberID not found in arguments' });
 
-                                    // When the admin assigns the last user>card, check if there is a next feature, else end the session
-                                    if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
-                                        currentSession.stateMachine.state = STATE.END;
+                        // Check if our given memberID is valid
+                        else if (!args.member.match(/^[0-9a-fA-F]{24}$/)) client.emit('error', { error: 'Invalid memberID given' });
+                        else
+                        {
+                            // Get full name of user with id
+                            currentSession.trelloApi.getBoardMembers(currentSession.trelloBoard.id)
+                                          .then(members => {
+                                              let SelectedUserFullname = members.find(member => member.id == args.member).fullName
 
-                                    currentSession.stateMachine.loadNextState();
-                                }
-                                else console.error(err);
-                            });
-                        })
+                                              // Add chosen user to database
+                                              SessionObject.updateOne(
+                                                  { "features._id": currentSession.dbData.features[currentSession.featurePointer]._id },
+                                                  { "$set": { 'features.$.chosenUser': SelectedUserFullname } })
+                                                           .then(() => {
+                                                               // Add the given user to the card and load the next state
+                                                               currentSession.trelloApi.addMemberToCard(currentSession.backlog.cards[currentSession.featurePointer], args.member)
+                                                                             .then(() => {
+                                                                                 currentSession.featureAssignedMember = args.member;
+                                                                                 currentSession.stateMachine.loadNextState();
+                                                                             })
+                                                                             .catch(err => {
+                                                                                 if (err?.response?.data == 'member is already on the card')
+                                                                                 {
+                                                                                     currentSession.featureAssignedMember = args.member;
+                                                                                     currentSession.stateMachine.number = args.number;
 
-
-                        
+                                                                                     // When the admin assigns the last user>card, check if there is a next feature, else end the session
+                                                                                     if (currentSession.backlog.cards.length === currentSession.featurePointer + 1)
+                                                                                         currentSession.stateMachine.state = STATE.END;currentSession.stateMachine.loadNextState();
+                                                                                 }
+                                                                                 else console.error(err);
+                                                                             });
+                                                           }).catch(err => console.error(err))
+                                          })
+                                          .catch(err => console.error(err))
+                        }
                     }
                 break;
             }

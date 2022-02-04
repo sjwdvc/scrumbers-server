@@ -13,120 +13,112 @@ const req = require('express/lib/request');
 
 const register = (req, res) => {
     // Check if the user already exists in the database
-    User.find({name: req.body.name})
+    User.find({ name: req.body.name })
         .then(name => {
-            if(name.length === 0)
-            {
-                User.find({email : req.body.email})
+            if (name.length === 0) {
+                User.find({ email: req.body.email })
                     .then(data => {
                         // If no data is found, continue validation, else return an error message to display
                         if (data.length === 0) {
                             // If password is not 8 characters
-                            if (req.body.password.length < 8)
-                            {
+                            if (req.body.password.length < 8) {
                                 res.json
-                                   (
-                                       {
-                                           error : 'Password requires at least 8 characters',
-                                           field : 'password'
-                                       }
-                                   )
+                                    (
+                                        {
+                                            error: 'Password requires at least 8 characters',
+                                            field: 'password'
+                                        }
+                                    )
                             }
                             // If password doesn't include a capital letter
-                            else if(!req.body.password.split("").some(letter => letter === letter.toUpperCase()))
-                            {
+                            else if (!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
                                 res.json
-                                   (
-                                       {
-                                           error : 'Password requires at least 1 capital letter',
-                                           field : 'password'
-                                       }
-                                   )
+                                    (
+                                        {
+                                            error: 'Password requires at least 1 capital letter',
+                                            field: 'password'
+                                        }
+                                    )
                             }
 
                             // If password doesn't include a number
-                            else if(!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v))))
-                            {
+                            else if (!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
                                 res.json
-                                   (
-                                       {
-                                           error : 'Password requires at least 1 number',
-                                           field : 'password',
-                                       }
-                                   )
+                                    (
+                                        {
+                                            error: 'Password requires at least 1 number',
+                                            field: 'password',
+                                        }
+                                    )
                             }
-                            else
-                            {
+                            else {
                                 if (Object.values(req.body).some(value => harms.test(value))) {
                                     res.json
-                                       ({
-                                            error : 'Some characters are not allowed',
-                                            field : Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
+                                        ({
+                                            error: 'Some characters are not allowed',
+                                            field: Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
                                         })
-                                } else
-                                {
+                                } else {
                                     // Hash password after validation and before inserting into database
                                     bcrypt.hash(req.body.password, 10)
-                                          .then(passwdHash => {
-                                              // When the hash is done we set the password to the hashed version
-                                              req.body.password = passwdHash;
-                                              req.body.templates = [
-                                                  {
-                                                      title: "Standard template",
-                                                      cards: [-2, -1, 0, 1, 2, 3, 5, 8, 13, 20, 40, 100]
-                                                  }
-                                              ]
+                                        .then(passwdHash => {
+                                            // When the hash is done we set the password to the hashed version
+                                            req.body.password = passwdHash;
+                                            req.body.passwordHistory = [passwdHash];
+                                            req.body.templates = [
+                                                {
+                                                    title: "Standard template",
+                                                    cards: [-2, -1, 0, 1, 2, 3, 5, 8, 13, 20, 40, 100]
+                                                }
+                                            ];
 
-                                              // Insert database record
-                                              User.create(req.body)
-                                                  .then(data => {
+                                            // Insert database record
+                                            User.create(req.body)
+                                                .then(data => {
 
-                                                      // Set session variables
-                                                      req.session.token = generateToken([data]);
-                                                      req.session.name  = req.body.name;
-                                                      req.session.email = req.body.email;
+                                                    // Set session variables
+                                                    req.session.token = generateToken([data]);
+                                                    req.session.name = req.body.name;
+                                                    req.session.email = req.body.email;
 
-                                                      res.status(200).json({});
-                                                  })
-                                                  .catch((err) => res.status(500).json({ error: err.message }));
-                                          })
-                                          .catch(err => res.status(500).json({ error: err.message }))
+                                                    res.status(200).json({});
+                                                })
+                                                .catch((err) => res.status(500).json({ error: err.message }));
+                                        })
+                                        .catch(err => res.status(500).json({ error: err.message }))
                                 }
                             }
                         }
-                        else
-                        {
+                        else {
                             res.json
-                               (
-                                   {
-                                       error : 'Email is already taken',
-                                       field : 'email'
-                                   }
-                               )
+                                (
+                                    {
+                                        error: 'Email is already taken',
+                                        field: 'email'
+                                    }
+                                )
                         }
                     })
                     .catch(err => {
                         res.status(500).json(err)
                     })
             }
-            else
-            {
+            else {
                 res.json
-                   (
-                       {
-                           error : 'Username is already taken',
-                           field : 'name'
-                       }
-                   )
+                    (
+                        {
+                            error: 'Username is already taken',
+                            field: 'name'
+                        }
+                    )
             }
         })
 
 };
 
-const validatePassword = (password) => {
-    
+const validatePassword = (req, res) => {
     // If password is not 8 characters
-    if (password.length < 8) {
+    if (req.body.password.length < 8) {
         res.json
             (
                 {
@@ -137,7 +129,7 @@ const validatePassword = (password) => {
         return false;
     }
     // If password doesn't include a capital letter
-    else if (!password.split("").some(letter => letter === letter.toUpperCase())) {
+    else if (!req.body.password.split("").some(letter => letter === letter.toUpperCase())) {
         res.json
             (
                 {
@@ -147,9 +139,8 @@ const validatePassword = (password) => {
             );
         return false;
     }
-
     // If password doesn't include a number
-    else if (!password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
+    else if (!req.body.password.split("").some(v => [...Array(10).keys()].includes(parseInt(v)))) {
         res.json
             (
                 {
@@ -159,31 +150,32 @@ const validatePassword = (password) => {
             );
         return false;
     }
+    // If password contains specific characters
+    else if (Object.values(req.body.password).some(value => harms.test(value))) {
+        res.json
+            ({
+                error: 'Some characters are not allowed',
+                field: Object.keys(req.body.password).find(k => req.body[k] === Object.values(req.body.password).find(value => harms.test(value)))
+            })
+    }
     return true;
 }
 
 const updatePassword = (req, res) => {
     // validate password
-    if (!validatePassword(req.body.password))
+    if (!validatePassword(req, res)) {
         return;
-    else if (Object.values(req.body).some(value => harms.test(value))) {
-        res.json
-            ({
-                error: 'Some characters are not allowed',
-                field: Object.keys(req.body).find(k => req.body[k] === Object.values(req.body).find(value => harms.test(value)))
-            })
     } else {
         User.find({ email: req.session.email })
             .then((data) => {
 
-                // check if new password is same as old password
-                bcrypt.compare(req.body.password, data[0].password)
-                    .then(result => {
+                // check if new password has been used before
+                usedPasswordBefore(req.body.password, data[0].passwordHistory).then(result => {
                         if (result) {
                             res.json
                                 (
                                     {
-                                        error: 'New password cannot be same as old password',
+                                        error: 'New password cannot be same as an old password',
                                         field: 'password',
                                     }
                                 );
@@ -191,10 +183,14 @@ const updatePassword = (req, res) => {
                             bcrypt.hash(req.body.password, 10)
                                 .then(passwdHash => {
 
+                                    let passwordHistory = data[0].passwordHistory ?? [];
+                                    passwordHistory.push(passwdHash);
+
                                     User.updateOne({
                                         email: req.session.email
                                     }, {
                                         password: passwdHash,
+                                        passwordHistory: passwordHistory,
                                         lastPasswordReset: new Date()
                                     }, {
                                         upsert: true
@@ -211,6 +207,27 @@ const updatePassword = (req, res) => {
             }).catch(err => res.status(500).json({ error: err.message }))
     }
 };
+
+/**
+ * Check if password has been used before.
+ * returns true if password has been used before.
+ * @param {User} user 
+ * @param {String} pass 
+ */
+const usedPasswordBefore = async (pass, passHistory) => {
+    let used = false;
+    for (let i = 0; i < passHistory.length; i++) {
+        const result = await bcrypt.compare(
+            pass,
+            passHistory[i],
+        );
+        if (result) {
+            used = true;
+            break;
+        }
+    }
+    return used;
+}
 
 const readData = (req, res) => {
     User.find()
@@ -390,10 +407,10 @@ const hasOldPassword = (data) => {
     }
 
     // get date, 2 months ago
-    let twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    let sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    if (data.lastPasswordReset < twoMonthsAgo) {
+    if (data.lastPasswordReset < sixMonthsAgo) {
         return true;
     }
     return false;
@@ -402,31 +419,47 @@ const hasOldPassword = (data) => {
  * Send an email to the users email address if there is a user with this email address
  */
 const canResetPassword = (req, res) => {
-    User.find({email: req.body.email})
+    User.find({ email: req.body.email, accountType: 0 })
         .then(user => {
-            console.log(req.body);
-            console.log(user);
             // Check if a user was found
-            if (user && user[0])
-            {
+            if (user && user[0]) {
                 require('../helpers/classes/mail')().then(transport => {
-                // Secret is now stored in heroku config
-                if (process.env.JWT_TOKEN_SECRET === "")
-                    process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
+                    const hbs = require('nodemailer-express-handlebars');
+                    const path = require('path');
+
+                    // Secret is now stored in heroku config
+                    if (process.env.JWT_TOKEN_SECRET === "")
+                        process.env.JWT_TOKEN_SECRET = require('crypto').createHash('md5').update(JSON.stringify(process.env)).digest("hex");
 
                     // Generate a token so we can validate the requester on the client
-                    let token = jwt.sign({id : generateID(), user : user[0].id, timestamp : Date.now() }, process.env.JWT_TOKEN_SECRET)
-                    console.log('token: ', token);
+                    let token = jwt.sign({ id: generateID(), user: user[0].id, timestamp: Date.now() }, process.env.JWT_TOKEN_SECRET)
 
                     // Add the token to the user
                     User.updateOne({ email: user[0].email }, { token }, { upsert: true }, (err, res) => console.log(err, res));
 
+                    // point to the template folder
+                    const handlebarOptions = {
+                        viewEngine: {
+                            partialsDir: path.resolve('./views/emailtemplates/'),
+                            defaultLayout: false,
+                        },
+                        viewPath: path.resolve('./views/emailtemplates/'),
+                    };
+
+                    // use a template file with nodemailer
+                    transport.use('compile', hbs(handlebarOptions))
+
                     // Send the mail
                     transport.sendMail({
-                        from    : 'admin@scrumbers.com',
-                        to      : user[0].email,
-                        text    : '',
-                        html    : `Click <a href="${req.protocol}://${server.clienthost}/passwordreset/#${token}">here</a> to reset your password`
+                        from: '"Scrumbers" <admin@scrumbers.com>',
+                        to: user[0].email,
+                        subject: 'Scrumbers - Password reset',
+                        template: 'resetpassword',
+                        context: {
+                            name: user[0].name,
+                            reseturl: `${req.protocol}://${server.clienthost}/passwordreset/#${token}`,
+                            appurl: `${req.protocol}://${server.clienthost}`,
+                        }
                     });
 
                     res.status(200).json({ status: true });
@@ -450,27 +483,46 @@ const resetPassword = (req, res) => {
                     if (user && user[0])
                     {
                         // Validate new password
-                        if (validatePassword(req.body.password))
+                        if (validatePassword(req, res))
                         {
-                            // Than replace the passwords
-                            bcrypt.hash(req.body.password, 10)
-                                .then(passwdHash => {
 
-                                    User.updateOne({
-                                        email: user[0].email
-                                    }, {
-                                        password: passwdHash,
-                                        lastPasswordReset: new Date()
-                                    }, {
-                                        upsert: true
-                                    }, (err, res) => console.log(err, res)).clone()
-                                        .then(() => {
-                                            res.status(200).json({ status: true });
-                                        }).catch((error) => {
-                                            console.log(error);
-                                            res.status(200).json({ error: "Something went wrong trying to change your password" });
+                            // check if new password has been used before
+                            usedPasswordBefore(req.body.password, user[0].passwordHistory ?? []).then(result => {
+                                if (result) {
+                                    res.json
+                                        (
+                                            {
+                                                error: 'New password cannot be same as an old password',
+                                                field: 'password',
+                                            }
+                                        );
+                                } else {
+
+                                    // Than replace the passwords
+                                    bcrypt.hash(req.body.password, 10)
+                                        .then(passwdHash => {
+
+                                            let passwordHistory = user[0].passwordHistory ?? [];
+                                            passwordHistory.push(passwdHash);
+
+                                            User.updateOne({
+                                                email: user[0].email
+                                            }, {
+                                                password: passwdHash,
+                                                passwordHistory: passwordHistory,
+                                                lastPasswordReset: new Date()
+                                            }, {
+                                                upsert: true
+                                            }, (err, res) => console.log(err, res)).clone()
+                                                .then(() => {
+                                                    res.status(200).json({ status: true });
+                                                }).catch((error) => {
+                                                    console.log(error);
+                                                    res.status(200).json({ error: "Something went wrong trying to change your password" });
+                                                });
                                         });
-                                });
+                                }
+                            })
                         }
                     }
                 });

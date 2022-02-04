@@ -1,5 +1,3 @@
-const Session = require('./session');
-
 const STATE = {
     WAITING: 0,
     ROUND_1: 1,
@@ -14,6 +12,8 @@ class StateMachine {
     prevState   = 0;
     coffeeUsed  = false;
     number      = 0;
+    coffeeinterval;
+
 
     /**
      * 
@@ -44,6 +44,7 @@ class StateMachine {
                     break;
 
                 case STATE.COFFEE_TIMEOUT:
+
                     if (this.prevState != STATE.ROUND_1 && this.prevState != STATE.ROUND_2) break;
                     this['loadRound' + this.prevState]();
                 break;
@@ -75,10 +76,18 @@ class StateMachine {
                     }
 
                     // Send the results back to the client
-                    this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
-                        this.session.broadcast('results', { number: this.number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer - 1] });
+                    if(this.session.featureAssignedMember === -1)
+                    {
+                        this.session.broadcast('results', { number: this.number, member: -1, feature: this.session.backlog.cards[this.session.featurePointer] });
                         this.session.featureAssignedMember = null;
-                    }).catch(err => console.error(err));
+                    }
+                    else
+                    {
+                        this.session.trelloApi.getBoardMembers(this.session.trelloBoard.id).then(members => {
+                            this.session.broadcast('results', { number: this.number, member: members.find(member => member.id == this.session.featureAssignedMember).fullName, feature: this.session.backlog.cards[this.session.featurePointer] });
+                            this.session.featureAssignedMember = null;
+                        }).catch(err => console.error(err));
+                    }
 
                     // Continue to the next round
                     this.state = STATE.ROUND_1;
@@ -99,7 +108,7 @@ class StateMachine {
                 case STATE.END:
                     this.session.setCardScore(this.number);
                     this.session.broadcast('load', { toLoad: this.state, data: this.session.featureData(), template : this.session.template });
-                    break;
+                break;
             }
             this.prevState = this.state;
         }
@@ -159,10 +168,10 @@ class StateMachine {
                             res = Object.keys(count).reduce((acc, val, ind) => {
                                 if (!ind || count[val] > count[acc[0]]) {
                                     return [val];
-                                };
+                                }
                                 if (count[val] === count[acc[0]]) {
                                     acc.push(val);
-                                };
+                                }
                                 return acc;
                             }, []);
                             return res;
@@ -170,8 +179,6 @@ class StateMachine {
 
                         let commoncards = mostcommon(this.session.dbData.features[this.session.featurePointer].votes
                                              .filter(vote => vote.round === 2).map(vote => vote.value))
-
-                        console.log(commoncards)
 
                         if(commoncards.length > 1)
                             this.session.admin.emit('admin', { event: 'chooseboth', members : members, cards: commoncards, data: this.session.featureData() });
@@ -202,7 +209,7 @@ class StateMachine {
         let seconds = 60;
         let minutes = Math.floor((this.session.coffee * 60 - seconds) / 60)
 
-        let inter = setInterval(() => {
+        this.coffeeinterval = setInterval(() => {
 
             seconds--;
 
@@ -213,11 +220,14 @@ class StateMachine {
             if(seconds === 0 && minutes === 0)
             {
                 this.loadNextState();
-                clearInterval(inter);
+                clearInterval(this.coffeeinterval);
             }
 
-            this.session.broadcast('sendTime', { minutes: minutes, seconds: seconds });
-        }, 100)
+            this.session.clients.forEach(client => {
+                client.emit('sendTime', { minutes: minutes, seconds: seconds });
+            })
+
+        }, 1000)
     }
 
     /**

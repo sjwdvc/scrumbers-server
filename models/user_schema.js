@@ -29,6 +29,10 @@ const userSchema = new Schema(
             type : String,
             required : [true, 'password field is required'],
         },
+        passwordHistory : {
+            type : Array,
+            required : false,
+        },
         age : {
             type : String,
             required : false,
