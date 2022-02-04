@@ -269,11 +269,16 @@ module.exports = function(io)
                     if (currentSession.stateMachine.state != STATE.ROUND_1 && currentSession.stateMachine.state != STATE.ROUND_2) 
                     {
                         client.emit('error', { error: 'You can not submit during this state of the game' });
-                        return;
+                    }
+
+                    // Validate user input
+                    else if (isNaN(args.number))
+                    {
+                        client.emit('error', { error: "Given card must be a number!" });
                     }
 
                     // Check if the client has already submitted a value
-                    if (!currentSession.submits.includes(args.email))
+                    else if (!currentSession.submits.includes(args.email))
                     {
                         // Add our submit to the list of submissions so we know this client submitted a value
                         currentSession.submits.push(args.email);
@@ -332,6 +337,7 @@ module.exports = function(io)
                         }
                         submit
                         .then(() => {
+                            client.emit('success', {  }); // Tell the client it was a success
                             currentSession.broadcast('submit', {
                                 user: client.name,
                             });
